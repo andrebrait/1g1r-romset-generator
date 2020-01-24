@@ -1,0 +1,8 @@
+*.iml
+.idea
+
+# DAT files
+*.dat
+
+# Python virtualenv
+.env
