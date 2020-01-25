@@ -2,6 +2,7 @@ import getopt
 import os
 import re
 import sys
+from typing import Optional, Match
 
 import datafile
 
@@ -32,15 +33,14 @@ country_region_translation = [
     ('Asia', 'JPN'),
     ('Europe', 'EUR'),
     ('World', 'EUR'),
-    ('World', 'USA'),
-    ('World', 'JPN')
+    ('World', 'JPN'),
+    ('World', 'USA')
 ]
 
-
-beta_regex = re.compile('\\(Beta(?:\\s*[0-9]+)?\\)', re.IGNORECASE)
-proto_regex = re.compile('\\(Proto(?:\\s*[0-9]+)?\\)', re.IGNORECASE)
-sample_regex = re.compile('\\(Sample(?:\\s*[0-9]+)?\\)', re.IGNORECASE)
-demo_regex = re.compile('\\(Demo(?:\\s*[0-9]+)?\\)', re.IGNORECASE)
+beta_regex = re.compile('\\(Beta(?:\\s*([0-9]+))?\\)', re.IGNORECASE)
+proto_regex = re.compile('\\(Proto(?:\\s*([0-9]+))?\\)', re.IGNORECASE)
+sample_regex = re.compile('\\(Sample(?:\\s*([0-9]+))?\\)', re.IGNORECASE)
+demo_regex = re.compile('\\(Demo(?:\\s*([0-9]+))?\\)', re.IGNORECASE)
 rev_regex = re.compile('\\(Rev\\s*([0-9]+)\\)', re.IGNORECASE)
 version_regex = re.compile('\\(v\\s*([0-9]+(?:\\.[0-9]+))?\\)', re.IGNORECASE)
 sections_regex = re.compile('\\(([^()]+)\\)')
@@ -80,6 +80,10 @@ def get_region_index(region, selected_regions):
         return UNSELECTED_REGION
 
 
+def parse_prerelease(match: Optional[Match]):
+    return int(match.group(1)) if match else 9999
+
+
 def parse_games(
         file,
         selected_regions,
@@ -95,21 +99,29 @@ def parse_games(
     for idx in range(0, len(root.game)):
         game = root.game[idx]
         parent_name = game.cloneof if game.cloneof else game.name
+        beta_match = beta_regex.search(game.name)
+        demo_match = demo_regex.search(game.name)
+        sample_match = sample_regex.search(game.name)
+        proto_match = proto_regex.search(game.name)
         if parent_name not in games:
             games[parent_name] = []
         if filter_bios and '[BIOS]' in game.name:
             continue
         if filter_unlicensed and '(Unl)' in game.name:
             continue
-        if filter_beta and beta_regex.search(game.name) is not None:
+        if filter_beta and beta_match is not None:
             continue
-        if filter_demo and demo_regex.search(game.name) is not None:
+        if filter_demo and demo_match is not None:
             continue
-        if filter_sample and sample_regex.search(game.name) is not None:
+        if filter_sample and sample_match is not None:
             continue
-        if filter_proto and proto_regex.search(game.name) is not None:
+        if filter_proto and proto_match is not None:
             continue
         is_bad = '[b]' in game.name
+        beta = parse_prerelease(beta_match)
+        demo = parse_prerelease(demo_match)
+        sample = parse_prerelease(sample_match)
+        proto = parse_prerelease(proto_match)
         revision = parse_revision(game.name)
         version = parse_version(game.name)
         region_indexes = []
@@ -125,7 +137,17 @@ def parse_games(
         for rom in game.rom:
             for region_index in region_indexes:
                 if all_regions or region_index < UNSELECTED_REGION:
-                    games[parent_name].append((is_bad, region_index, idx, revision, version, rom))
+                    games[parent_name].append((
+                        is_bad,
+                        region_index,
+                        idx,
+                        revision,
+                        version,
+                        sample,
+                        demo,
+                        beta,
+                        proto,
+                        rom))
     return games
 
 
@@ -219,11 +241,15 @@ def main(argv):
             x[1],
             index_multiplier * x[2],
             rev_multiplier * x[3],
-            version_multiplier * x[4]))
+            version_multiplier * x[4],
+            -x[5],
+            -x[6],
+            -x[7],
+            -x[8]))
 
     for game, entries in games.items():
         if entries:
-            file_name = str(entries[0][5].name)
+            file_name = str(entries[0][9].name)
             if file_extension:
                 file_name = file_name[:file_name.rindex(os.extsep)] + os.extsep + file_extension
             if input_dir:
