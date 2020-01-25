@@ -248,18 +248,20 @@ def main(argv):
             -x[8]))
 
     for game, entries in games.items():
-        if entries:
-            file_name = str(entries[0][9].name)
+        for entry in entries:
+            file_name = str(entry[9].name)
             if file_extension:
                 file_name = file_name[:file_name.rindex(os.extsep)] + os.extsep + file_extension
             if input_dir:
                 full_path = input_dir + os.sep + file_name
                 if os.path.isfile(full_path):
                     print(file_name)
+                    break
                 else:
-                    print("WARNING: file [" + full_path + "] not found", file=sys.stderr)
+                    print("WARNING: file [" + full_path + "] not found, attempting next candidate", file=sys.stderr)
             else:
                 print(file_name)
+                break
 
 
 def print_help():
