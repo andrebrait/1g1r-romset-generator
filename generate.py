@@ -251,7 +251,8 @@ def main(argv):
             -x[5],
             -x[6],
             -x[7],
-            -x[8]))
+            -x[8],
+            len((str(x[9].name)))))
 
     for game, entries in games.items():
         for entry in entries:
