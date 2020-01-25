@@ -37,11 +37,11 @@ country_region_translation = [
     ('World', 'USA')
 ]
 
-beta_regex = re.compile('\\(Beta(?:\\s*([0-9]+))?\\)', re.IGNORECASE)
-proto_regex = re.compile('\\(Proto(?:\\s*([0-9]+))?\\)', re.IGNORECASE)
-sample_regex = re.compile('\\(Sample(?:\\s*([0-9]+))?\\)', re.IGNORECASE)
-demo_regex = re.compile('\\(Demo(?:\\s*([0-9]+))?\\)', re.IGNORECASE)
-rev_regex = re.compile('\\(Rev\\s*([0-9]+)\\)', re.IGNORECASE)
+beta_regex = re.compile('\\(Beta(?:\\s*([0-9]+|[a-z]))?\\)', re.IGNORECASE)
+proto_regex = re.compile('\\(Proto(?:\\s*([0-9]+|[a-z]))?\\)', re.IGNORECASE)
+sample_regex = re.compile('\\(Sample(?:\\s*([0-9]+|[a-z]))?\\)', re.IGNORECASE)
+demo_regex = re.compile('\\(Demo(?:\\s*([0-9]+|[a-z]))?\\)', re.IGNORECASE)
+rev_regex = re.compile('\\(Rev\\s*([0-9]+|[a-z])\\)', re.IGNORECASE)
 version_regex = re.compile('\\(v\\s*([0-9]+(?:\\.[0-9]+))?\\)', re.IGNORECASE)
 sections_regex = re.compile('\\(([^()]+)\\)')
 
@@ -49,7 +49,10 @@ sections_regex = re.compile('\\(([^()]+)\\)')
 def parse_revision(name):
     rev_matcher = rev_regex.search(name)
     if rev_matcher:
-        return int(rev_matcher.group(1))
+        try:
+            return int(rev_matcher.group(1))
+        except ValueError:
+            return ord(rev_matcher.group(1).upper())
     else:
         return 0
 
@@ -81,7 +84,10 @@ def get_region_index(region, selected_regions):
 
 
 def parse_prerelease(match: Optional[Match]):
-    return int(match.group(1)) if match else 9999
+    try:
+        return int(match.group(1)) if match else 9999
+    except ValueError:
+        return ord(match.group(1).upper()) if match else 9999
 
 
 def parse_games(
