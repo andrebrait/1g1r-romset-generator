@@ -1,4 +1,5 @@
 import getopt
+import os
 import re
 import sys
 
@@ -91,7 +92,8 @@ def parse_games(
         all_regions):
     games = {}
     root = datafile.parse(file, silence=True)
-    for game in root.game:
+    for idx in range(0, len(root.game)):
+        game = root.game[idx]
         parent_name = game.cloneof if game.cloneof else game.name
         if parent_name not in games:
             games[parent_name] = []
@@ -107,6 +109,7 @@ def parse_games(
             continue
         if filter_proto and proto_regex.search(game.name) is not None:
             continue
+        is_bad = '[b]' in game.name
         revision = parse_revision(game.name)
         version = parse_version(game.name)
         region_indexes = []
@@ -122,13 +125,13 @@ def parse_games(
         for rom in game.rom:
             for region_index in region_indexes:
                 if all_regions or region_index < UNSELECTED_REGION:
-                    games[parent_name].append((region_index, revision, version, rom))
+                    games[parent_name].append((is_bad, region_index, idx, revision, version, rom))
     return games
 
 
 def main(argv):
     try:
-        opts, args = getopt.getopt(argv, 'hr:', [
+        opts, args = getopt.getopt(argv, 'hr:e:i:', [
             'help',
             'regions=',
             'no-bios',
@@ -140,7 +143,10 @@ def main(argv):
             'no-all',
             'all-regions',
             'early-revisions',
-            'early-versions'
+            'early-versions',
+            'input-order',
+            'extension=',
+            'input-dir='
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -156,7 +162,10 @@ def main(argv):
     all_regions = False
     rev_multiplier = -1
     version_multiplier = -1
+    index_multiplier = 0
     selected_regions = None
+    file_extension = None
+    input_dir = None
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
@@ -174,9 +183,24 @@ def main(argv):
             rev_multiplier = 1
         if opt == '--early-versions':
             version_multiplier = 1
+        if opt in ('-e', '--extension'):
+            file_extension = arg.lstrip(os.extsep)
+        if opt == '--input-order':
+            index_multiplier = 1
+        if opt in ('-i', '--input-dir'):
+            input_dir = arg.rstrip(os.sep)
+            if not os.path.isdir(input_dir):
+                print('invalid input directory: ' + input_dir)
+                print_help()
+                sys.exit(2)
     if not selected_regions:
+        print('invalid region selection', file=sys.stderr)
         print_help()
-        exit(2)
+        sys.exit(2)
+    if rev_multiplier > 0 or version_multiplier > 0 and index_multiplier > 0:
+        print('early-revisions and early-versions are mutually exclusive with input-order', file=sys.stderr)
+        print_help()
+        sys.exit(2)
 
     games = parse_games(
         args[0],
@@ -190,16 +214,32 @@ def main(argv):
         all_regions)
 
     for game in games:
-        games[game].sort(key=lambda x: (x[0], rev_multiplier * x[1], version_multiplier * x[2]))
+        games[game].sort(key=lambda x: (
+            x[0],
+            x[1],
+            index_multiplier * x[2],
+            rev_multiplier * x[3],
+            version_multiplier * x[4]))
 
     for game, entries in games.items():
         if entries:
-            print(entries[0][3].name)
+            file_name = str(entries[0][5].name)
+            if file_extension:
+                file_name = file_name[:file_name.rindex(os.extsep)] + os.extsep + file_extension
+            if input_dir:
+                full_path = input_dir + os.sep + file_name
+                if os.path.isfile(full_path):
+                    print(file_name)
+                else:
+                    print("WARNING: file [" + full_path + "] not found", file=sys.stderr)
+            else:
+                print(file_name)
 
 
 def print_help():
     print('Usage: python3 generate.py [options] input_file.dat', file=sys.stderr)
     print('Options:', file=sys.stderr)
+    print('\t-h,--help\tPrints this usage message', file=sys.stderr)
     print('\t-r,--regions=REGIONS\tA list of regions separated by commas. Ex.: -r USA,EUR,JPN', file=sys.stderr)
     print('\t--no-bios\tFilter out BIOSes', file=sys.stderr)
     print('\t--no-unlicensed\tFilter out unlicensed ROMs', file=sys.stderr)
@@ -209,8 +249,11 @@ def print_help():
     print('\t--no-proto\tFilter out prototype ROMs', file=sys.stderr)
     print('\t--no-all\tApply all filters above', file=sys.stderr)
     print('\t--all-regions\tIncludes files of unselected regions, if a selected one if not available', file=sys.stderr)
-    print('\t--early-revisions\tIf present, ROMs of earlier revisions will be prioritized', file=sys.stderr)
-    print('\t--early-versions\tIf present, ROMs of earlier versions will be prioritized', file=sys.stderr)
+    print('\t--early-revisions\tROMs of earlier revisions will be prioritized', file=sys.stderr)
+    print('\t--early-versions\tROMs of earlier versions will be prioritized', file=sys.stderr)
+    print('\t--input-order\tROMs will be prioritized by the order they appear in the DAT file', file=sys.stderr)
+    print('\t-e,--extension=EXTENSION\tROM names will use this extension. Ex.: -e zip', file=sys.stderr)
+    print('\t-i,--input-dir=PATH\tProvides an input directory (i.e.: where your ROMs are)', file=sys.stderr)
 
 
 if __name__ == '__main__':
