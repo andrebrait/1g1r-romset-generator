@@ -2,7 +2,7 @@ import getopt
 import os
 import re
 import sys
-from typing import Optional, Match
+from typing import Optional, Match, List, Dict
 
 import datafile
 
@@ -37,6 +37,32 @@ country_region_translation = [
     ('World', 'USA')
 ]
 
+
+class GameEntry:
+    def __init__(
+            self,
+            is_bad: bool,
+            region_index: int,
+            input_index: int,
+            revision: int,
+            version: float,
+            sample: int,
+            demo: int,
+            beta: int,
+            proto: int,
+            rom: datafile.rom):
+        self.is_bad = is_bad
+        self.region_index = region_index
+        self.input_index = input_index
+        self.revision = revision
+        self.version = version
+        self.sample = sample
+        self.demo = demo
+        self.beta = beta
+        self.proto = proto
+        self.rom = rom
+
+
 beta_regex = re.compile('\\(Beta(?:\\s*([0-9]+|[a-z]))?\\)', re.IGNORECASE)
 proto_regex = re.compile('\\(Proto(?:\\s*([0-9]+|[a-z]))?\\)', re.IGNORECASE)
 sample_regex = re.compile('\\(Sample(?:\\s*([0-9]+|[a-z]))?\\)', re.IGNORECASE)
@@ -46,7 +72,7 @@ version_regex = re.compile('\\(v\\s*([0-9]+(?:\\.[0-9]+))?\\)', re.IGNORECASE)
 sections_regex = re.compile('\\(([^()]+)\\)')
 
 
-def parse_revision(name):
+def parse_revision(name: str):
     rev_matcher = rev_regex.search(name)
     if rev_matcher:
         try:
@@ -57,7 +83,7 @@ def parse_revision(name):
         return 0
 
 
-def parse_version(name):
+def parse_version(name: str):
     version_matcher = version_regex.search(name)
     if version_matcher:
         return float(version_matcher.group(1))
@@ -65,7 +91,7 @@ def parse_version(name):
         return 0
 
 
-def parse_regions(name):
+def parse_regions(name: str):
     parsed = []
     for section in sections_regex.finditer(name):
         elements = [element.strip() for element in section.group(1).split(',')]
@@ -76,7 +102,7 @@ def parse_regions(name):
     return parsed
 
 
-def get_region_index(region, selected_regions):
+def get_region_index(region: str, selected_regions: List[str]):
     try:
         return selected_regions.index(region)
     except ValueError:
@@ -91,19 +117,19 @@ def parse_prerelease(match: Optional[Match]):
 
 
 def parse_games(
-        file,
-        selected_regions,
-        filter_bios,
-        filter_unlicensed,
-        filter_beta,
-        filter_demo,
-        filter_sample,
-        filter_proto,
-        all_regions):
+        file: str,
+        selected_regions: List[str],
+        filter_bios: bool,
+        filter_unlicensed: bool,
+        filter_beta: bool,
+        filter_demo: bool,
+        filter_sample: bool,
+        filter_proto: bool,
+        all_regions: bool) -> Dict[str, List[GameEntry]]:
     games = {}
     root = datafile.parse(file, silence=True)
-    for idx in range(0, len(root.game)):
-        game = root.game[idx]
+    for input_index in range(0, len(root.game)):
+        game = root.game[input_index]
         parent_name = game.cloneof if game.cloneof else game.name
         beta_match = beta_regex.search(game.name)
         demo_match = demo_regex.search(game.name)
@@ -143,21 +169,22 @@ def parse_games(
         for rom in game.rom:
             for region_index in region_indexes:
                 if all_regions or region_index < UNSELECTED_REGION:
-                    games[parent_name].append((
-                        is_bad,
-                        region_index,
-                        idx,
-                        revision,
-                        version,
-                        sample,
-                        demo,
-                        beta,
-                        proto,
-                        rom))
+                    games[parent_name].append(
+                        GameEntry(
+                            is_bad,
+                            region_index,
+                            input_index,
+                            revision,
+                            version,
+                            sample,
+                            demo,
+                            beta,
+                            proto,
+                            rom))
     return games
 
 
-def main(argv):
+def main(argv: List[str]):
     try:
         opts, args = getopt.getopt(argv, 'hr:e:i:', [
             'help',
@@ -243,20 +270,20 @@ def main(argv):
 
     for game in games:
         games[game].sort(key=lambda x: (
-            x[0],
-            x[1],
-            index_multiplier * x[2],
-            rev_multiplier * x[3],
-            version_multiplier * x[4],
-            -x[5],
-            -x[6],
-            -x[7],
-            -x[8],
-            len((str(x[9].name)))))
+            x.is_bad,
+            x.region_index,
+            index_multiplier * x.input_index,
+            rev_multiplier * x.revision,
+            version_multiplier * x.version,
+            -x.sample,
+            -x.demo,
+            -x.beta,
+            -x.proto,
+            len(x.rom.name)))
 
     for game, entries in games.items():
         for entry in entries:
-            file_name = str(entry[9].name)
+            file_name = entry.rom.name
             if file_extension:
                 file_name = file_name[:file_name.rindex(os.extsep)] + os.extsep + file_extension
             if input_dir:
