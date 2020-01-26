@@ -334,7 +334,7 @@ def main(argv: List[str]):
 
 
 def print_help():
-    print('Usage: python3 generate.py [options] input_file.dat', file=sys.stderr)
+    print('Usage: python3 generate.py [options] -d input_file.dat', file=sys.stderr)
     print('Options:', file=sys.stderr)
     print('\t-h,--help\tPrints this usage message', file=sys.stderr)
     print('\t-r,--regions=REGIONS\tA list of regions separated by commas. Ex.: -r USA,EUR,JPN', file=sys.stderr)

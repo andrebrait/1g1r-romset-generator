@@ -3,10 +3,11 @@
 A small python utility that uses NO-INTRO DATs to generate 1G1R sets
 
 ```
-Usage: python3 generate.py [options] input_file.dat
+Usage: python3 generate.py [options] -d input_file.dat
 Options:
         -h,--help       Prints this usage message
         -r,--regions=REGIONS    A list of regions separated by commas. Ex.: -r USA,EUR,JPN
+        -d,--dat=DAT_FILE       The DAT file to be used
         --no-bios       Filter out BIOSes
         --no-unlicensed Filter out unlicensed ROMs
         --no-beta       Filter out beta ROMs
@@ -19,5 +20,7 @@ Options:
         --early-versions        ROMs of earlier versions will be prioritized
         --input-order   ROMs will be prioritized by the order they appear in the DAT file
         -e,--extension=EXTENSION        ROM names will use this extension. Ex.: -e zip
+        -b,--blacklist=WORDS    ROMs containing these strings will be avoided. Ex.: -b "Virtual Console,GameCube"
+        -v,--verbose    Prints more messages (useful when troubleshooting)
         -i,--input-dir=PATH     Provides an input directory (i.e.: where your ROMs are)
 ```
