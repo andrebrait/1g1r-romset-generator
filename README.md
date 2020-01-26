@@ -23,4 +23,5 @@ Options:
         -b,--blacklist=WORDS    ROMs containing these strings will be avoided. Ex.: -b "Virtual Console,GameCube"
         -v,--verbose    Prints more messages (useful when troubleshooting)
         -i,--input-dir=PATH     Provides an input directory (i.e.: where your ROMs are)
+        -o,--output-dir=PATH    If provided, ROMs will be copied to an an output directory
 ```

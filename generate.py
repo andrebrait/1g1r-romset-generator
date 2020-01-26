@@ -1,6 +1,7 @@
 import getopt
 import os
 import re
+import shutil
 import sys
 from typing import Optional, Match, List, Dict
 
@@ -200,7 +201,7 @@ def replace_extension(file_extension, file_name):
 
 def main(argv: List[str]):
     try:
-        opts, args = getopt.getopt(argv, 'hd:r:e:i:b:v', [
+        opts, args = getopt.getopt(argv, 'hd:r:e:i:b:vo:', [
             'help',
             'dat=',
             'regions=',
@@ -218,7 +219,8 @@ def main(argv: List[str]):
             'extension=',
             'input-dir=',
             'blacklist=',
-            'verbose'
+            'verbose',
+            'output-dir='
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -241,6 +243,7 @@ def main(argv: List[str]):
     file_extension = None
     input_dir = None
     blacklist = None
+    output_dir = None
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
@@ -275,6 +278,15 @@ def main(argv: List[str]):
                 print('invalid input directory: ' + input_dir, file=sys.stderr)
                 print_help()
                 sys.exit(2)
+        if opt in ('-o', '--output-dir'):
+            output_dir = os.path.expanduser(arg)
+            if not os.path.isdir(output_dir):
+                try:
+                    os.makedirs(output_dir)
+                except OSError:
+                    print('invalid output DIR: ' + output_dir, file=sys.stderr)
+                    print_help()
+                    sys.exit(2)
     if not dat_file:
         print('DAT file is required', file=sys.stderr)
         print_help()
@@ -285,6 +297,10 @@ def main(argv: List[str]):
         sys.exit(2)
     if (revision_asc or version_asc) and index_multiplier > 0:
         print('early-revisions and early-versions are mutually exclusive with input-order', file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    if output_dir and not input_dir:
+        print('output-dir requires an input-dir', file=sys.stderr)
         print_help()
         sys.exit(2)
 
@@ -319,7 +335,11 @@ def main(argv: List[str]):
             if input_dir:
                 full_path = os.path.join(input_dir, file_name)
                 if os.path.isfile(full_path):
-                    print(file_name)
+                    if output_dir:
+                        print('Copying [' + file_name + '] to [' + output_dir + ']')
+                        shutil.copy2(full_path, output_dir)
+                    else:
+                        print(file_name)
                     break
                 else:
                     if verbose:
@@ -356,6 +376,7 @@ def print_help():
         file=sys.stderr)
     print('\t-v,--verbose\tPrints more messages (useful when troubleshooting)',file=sys.stderr)
     print('\t-i,--input-dir=PATH\tProvides an input directory (i.e.: where your ROMs are)', file=sys.stderr)
+    print('\t-o,--output-dir=PATH\tIf provided, ROMs will be copied to an an output directory', file=sys.stderr)
 
 
 if __name__ == '__main__':
