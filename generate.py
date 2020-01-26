@@ -252,7 +252,7 @@ def main(argv: List[str]):
         print('invalid region selection', file=sys.stderr)
         print_help()
         sys.exit(2)
-    if rev_multiplier > 0 or version_multiplier > 0 and index_multiplier > 0:
+    if (rev_multiplier > 0 or version_multiplier > 0) and index_multiplier > 0:
         print('early-revisions and early-versions are mutually exclusive with input-order', file=sys.stderr)
         print_help()
         sys.exit(2)
