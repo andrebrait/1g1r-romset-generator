@@ -320,7 +320,7 @@ def main(argv: List[str]):
     for key in games:
         game_entries = games[key]
         game_entries.sort(key=lambda x: len(x.rom.name))
-        game_entries.sort(key=lambda x: (x.sample, x.demo, x.beta, x.proto), reverse=True)
+        game_entries.sort(key=lambda x: (x.proto, x.beta, x.demo, x.sample), reverse=True)
         game_entries.sort(key=lambda x: x.version, reverse=not version_asc)
         game_entries.sort(key=lambda x: x.revision, reverse=not revision_asc)
         game_entries.sort(key=lambda x: (x.is_bad, x.region_index, index_multiplier * x.input_index))
