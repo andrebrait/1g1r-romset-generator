@@ -94,9 +94,7 @@ def to_int_list(string: str) -> List[int]:
     return [ord(x) for x in string]
 
 
-T = TypeVar('T')
-
-def get(l: List[T], i: int) -> T:
+def get(l: List[int], i: int) -> int:
     return l[i] if i < len(l) else 0
 
 
