@@ -108,7 +108,7 @@ def add_padding(strings: List[str]) -> List[str]:
     for parts in parts_list:
         for i in range(0, len(parts)):
             parts[i] = ('0' * (max_lengths[i] - len(parts[i]))) + parts[i]
-    return ['.'.join(c) for c in parts_list]
+    return ['.'.join(parts) for parts in parts_list]
 
 
 def parse_revision(name: str) -> Optional[str]:
