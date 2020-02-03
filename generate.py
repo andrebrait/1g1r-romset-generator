@@ -3,7 +3,8 @@ import os
 import re
 import shutil
 import sys
-from typing import Optional, Match, List, Dict, Pattern
+from math import copysign
+from typing import Optional, Match, List, Dict, Pattern, Union
 
 import datafile
 
@@ -263,6 +264,14 @@ def replace_extension(extension, file_name):
         return file_name + os.extsep + extension
 
 
+def check_blacklist(ls: List[int], name: str, blacklist: Union[None, List[Pattern]]) -> List[int]:
+    if blacklist:
+        for pattern in blacklist:
+            if pattern.search(name):
+                return [int(copysign(abs(x) + BLACKLISTED_ROM_BASE, x)) for x in ls]
+    return ls
+
+
 def main(argv: List[str]):
     try:
         opts, args = getopt.getopt(argv, 'hd:r:e:i:b:vo:l:w:', [
@@ -393,10 +402,10 @@ def main(argv: List[str]):
         print("ignore-case only works if there's a blacklist too", file=sys.stderr)
         print_help()
         sys.exit(2)
-    if languages is not None and len(languages) == 0:
-        print('invalid list of languages', file=sys.stderr)
-        print_help()
-        sys.exit(2)
+    if ignore_case:
+        blacklist = [re.compile(re.escape(x), re.IGNORECASE) for x in blacklist]
+    else:
+        blacklist = [re.compile(re.escape(x)) for x in blacklist]
 
     games = parse_games(
         dat_file,
@@ -410,7 +419,17 @@ def main(argv: List[str]):
 
     for key in games:
         game_entries = games[key]
-        game_entries.sort(key=lambda x: len(x.rom.name))
+        revisions = add_padding([g.revision for g in game_entries])
+        for i in range(i, len(revisions)):
+            game_entries[i].revision = revisions[i]
+        versions = add_padding([g.version for g in game_entries])
+        for i in range(i, len(versions)):
+            game_entries[i].version = versions[i]
+        game_entries.sort(key=lambda x: (
+            x.is_bad,
+            x.is_parent,
+            check_blacklist(to_int_list(x.revision, 1 if revision_asc else -1), x.rom.name, blacklist)
+        ))len(x.rom.name))
         game_entries.sort(key=lambda x: (x.proto, x.beta, x.demo, x.sample), reverse=True)
         game_entries.sort(key=lambda x: x.version, reverse=not version_asc)
         game_entries.sort(key=lambda x: x.revision, reverse=not revision_asc)
