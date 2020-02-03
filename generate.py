@@ -3,7 +3,7 @@ import os
 import re
 import shutil
 import sys
-from typing import Optional, Match, List, Dict, Pattern
+from typing import Optional, Match, List, Dict, Pattern, TypeVar
 
 import datafile
 
@@ -49,6 +49,7 @@ class GameEntry:
     def __init__(
             self,
             is_bad: bool,
+            is_prerelease: bool,
             regions: List[str],
             languages: List[str],
             input_index: int,
@@ -61,6 +62,7 @@ class GameEntry:
             is_parent: bool,
             rom: datafile.rom):
         self.is_bad = is_bad
+        self.is_prerelease = is_prerelease
         self.regions = regions
         self.languages = languages
         self.input_index = input_index
@@ -86,6 +88,27 @@ rev_regex = re.compile(r'\(Rev\\s*([a-z0-9.]+)\)', re.IGNORECASE)
 version_regex = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
 languages_regex = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
 bad_regex = re.compile(re.escape('[b]'), re.IGNORECASE)
+
+
+def to_int_list(string: str) -> List[int]:
+    return [ord(x) for x in string]
+
+
+T = TypeVar('T')
+
+def get(l: List[T], i: int) -> T:
+    return l[i] if i < len(l) else 0
+
+
+def add_padding(strings: List[str]) -> List[str]:
+    parts_list = [s.split('.') for s in strings]
+    lengths = [[len(part) for part in parts] for parts in parts_list]
+    max_parts = max([len(parts) for parts in parts_list])
+    max_lengths = [max([get(lenght, i) for lenght in lengths]) for i in range(0, max_parts)]
+    for parts in parts_list:
+        for i in range(0, len(parts)):
+            parts[i] = ('0' * (max_lengths[i] - len(parts[i]))) + parts[i]
+    return ['.'.join(c) for c in parts_list]
 
 
 def parse_revision(name: str) -> Optional[str]:
