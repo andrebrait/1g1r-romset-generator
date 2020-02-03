@@ -7,8 +7,8 @@ from typing import Optional, Match, List, Dict, Pattern, TypeVar
 
 import datafile
 
-UNSELECTED_REGION = 4000000
-NOT_PRERELEASE = 4000000
+UNSELECTED_REGION = 10000
+NOT_PRERELEASE = "Z"
 
 BLACKLISTED_ROM_BASE = 1000
 
@@ -90,8 +90,8 @@ languages_regex = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
 bad_regex = re.compile(re.escape('[b]'), re.IGNORECASE)
 
 
-def to_int_list(string: str) -> List[int]:
-    return [ord(x) for x in string]
+def to_int_list(string: str, multiplier: int) -> List[int]:
+    return [multiplier * ord(x) for x in string]
 
 
 def get(l: List[int], i: int) -> int:
@@ -109,18 +109,21 @@ def add_padding(strings: List[str]) -> List[str]:
     return ['.'.join(parts) for parts in parts_list]
 
 
-def parse_revision(name: str) -> Optional[str]:
-    rev_matcher = rev_regex.search(name)
-    return rev_matcher.group(1) if rev_matcher else None
+def get_or_default(match: Optional[Match], default: str) -> str:
+    version = match.group(1) if match else None
+    return version if version else default
 
 
-def parse_version(name: str) -> Optional[str]:
-    version_matcher = version_regex.search(name)
-    return version_matcher.group(1) if version_matcher else None
+def parse_revision(name: str) -> str:
+    return get_or_default(rev_regex.search(name), '0')
 
 
-def parse_prerelease(match: Optional[Match]) -> Optional[str]:
-    return match.group(1) if match and match.group(1) else None
+def parse_version(name: str) -> str:
+    return get_or_default(version_regex.search(name), '0')
+
+
+def parse_prerelease(match: Optional[Match]) -> str:
+    return get_or_default(match, NOT_PRERELEASE)
 
 
 def parse_region_data(name: str) -> List[RegionData]:
