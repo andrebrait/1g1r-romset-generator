@@ -98,8 +98,8 @@ def to_int_list(string: str, multiplier: int) -> List[int]:
     return [multiplier * ord(x) for x in string]
 
 
-def get(l: List[int], i: int) -> int:
-    return l[i] if i < len(l) else 0
+def get(ls: List[int], i: int) -> int:
+    return ls[i] if i < len(ls) else 0
 
 
 def add_padding(strings: List[str]) -> List[str]:
