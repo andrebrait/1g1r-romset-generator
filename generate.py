@@ -3,18 +3,22 @@ import os
 import re
 import shutil
 import sys
-from typing import Optional, Match, List, Dict, Pattern, TypeVar
+from typing import Optional, Match, List, Dict, Pattern
 
 import datafile
 
-UNSELECTED_REGION = 10000
+UNSELECTED = 10000
 NOT_PRERELEASE = "Z"
 
 BLACKLISTED_ROM_BASE = 1000
 
 
 class RegionData:
-    def __init__(self, code: str, pattern: Optional[Pattern[str]], languages: List[str]):
+    def __init__(
+            self,
+            code: str,
+            pattern: Optional[Pattern[str]],
+            languages: List[str]):
         self.code = code
         self.pattern = pattern
         self.languages = languages
@@ -102,7 +106,8 @@ def add_padding(strings: List[str]) -> List[str]:
     parts_list = [s.split('.') for s in strings]
     lengths = [[len(part) for part in parts] for parts in parts_list]
     max_parts = max([len(parts) for parts in parts_list])
-    max_lengths = [max([get(lenght, i) for lenght in lengths]) for i in range(0, max_parts)]
+    max_lengths = [max([get(lenght, i) for lenght in lengths])
+                   for i in range(0, max_parts)]
     for parts in parts_list:
         for i in range(0, len(parts)):
             parts[i] = ('0' * (max_lengths[i] - len(parts[i]))) + parts[i]
@@ -131,8 +136,9 @@ def parse_region_data(name: str) -> List[RegionData]:
     for section in sections_regex.finditer(name):
         elements = [element.strip() for element in section.group(1).split(',')]
         for element in elements:
-            for region_data in COUNTRY_REGION_CORRELATION.values():
-                if region_data.pattern and region_data.pattern.fullmatch(element):
+            for region_data in COUNTRY_REGION_CORRELATION:
+                if region_data.pattern \
+                        and region_data.pattern.fullmatch(element):
                     parsed.append(region_data)
     return parsed
 
@@ -149,11 +155,17 @@ def parse_languages(name: str) -> List[str]:
 
 def get_region_data(code: str) -> Optional[RegionData]:
     code = code.upper() if code else code
-    if code not in COUNTRY_REGION_CORRELATION:
-        # We don't know which region this is, but we should still be able to filter and classify it
+    region_data = None
+    for r in COUNTRY_REGION_CORRELATION:
+        if r.code == code:
+            region_data = r
+            break
+    if not region_data:
+        # We don't know which region this is, but we should filter/classify it
         print('WARNING: unrecognized region (' + code + ')', file=sys.stderr)
-        COUNTRY_REGION_CORRELATION[code] = RegionData(None, [])
-    return COUNTRY_REGION_CORRELATION[code]
+        region_data = RegionData(code, None, [])
+        COUNTRY_REGION_CORRELATION.append(region_data)
+    return region_data
 
 
 def get_languages(region_data_list: List[RegionData]) -> List[str]:
@@ -165,6 +177,13 @@ def get_languages(region_data_list: List[RegionData]) -> List[str]:
     return languages
 
 
+def is_present(code: str, region_data: List[RegionData]) -> bool:
+    for r in region_data:
+        if r.code == code:
+            return True
+    return False
+
+
 def parse_games(
         file: str,
         filter_bios: bool,
@@ -173,9 +192,7 @@ def parse_games(
         filter_proto: bool,
         filter_beta: bool,
         filter_demo: bool,
-        filter_sample: bool,
-        all_regions: bool,
-        verbose: bool) -> Dict[str, List[GameEntry]]:
+        filter_sample: bool) -> Dict[str, List[GameEntry]]:
     games = {}
     root = datafile.parse(file, silence=True)
     for input_index in range(0, len(root.game)):
@@ -204,63 +221,46 @@ def parse_games(
         demo = parse_prerelease(demo_match)
         sample = parse_prerelease(sample_match)
         proto = parse_prerelease(proto_match)
+        is_prerelease = beta_match is not None \
+            or demo_match is not None \
+            or sample_match is not None \
+            or proto_match is not None
         revision = parse_revision(game.name)
         version = parse_version(game.name)
         region_data = parse_region_data(game.name)
         for release in game.release:
-            if release.region and release.region not in regions:
+            if release.region and not is_present(release.region, region_data):
                 region_data.append(get_region_data(release.region))
-        parsed_region_data = parse_region_data(game.name)
-        if parsed_region_data:
-
-
-        for release in game.release:
-            region_index = get_region_index(release.region, selected_regions)
-            if region_index not in region_indexes:
-                region_indexes.append(region_index)
-        for region in parse_region_data(game.name):
-            region_index = get_region_index(region, selected_regions)
-            if region_index not in region_indexes:
-                region_indexes.append(region_index)
-        if not region_indexes:
-            region_indexes.append(UNSELECTED_REGION)
-        if blacklist:
-            for string in blacklist:
-                if string in game.name:
-                    if verbose:
-                        print(
-                            'Penalizing candidate [' + game.name + ']. ' +
-                            'Reason: contains blacklisted string [' + string + ']',
-                            file=sys.stderr)
-                    region_indexes = [BLACKLISTED_ROM_BASE + x for x in region_indexes]
-                    break
+        languages = parse_languages(game.name)
+        if not languages:
+            languages = get_languages(region_data)
         parent_name = game.cloneof if game.cloneof else game.name
         if parent_name not in games:
             games[parent_name] = []
         for rom in game.rom:
-            for region_index in region_indexes:
-                if all_regions or region_index < UNSELECTED_REGION:
-                    games[parent_name].append(
-                        GameEntry(
-                            is_bad,
-                            regions,
-                            input_index,
-                            revision,
-                            version,
-                            sample,
-                            demo,
-                            beta,
-                            proto,
-                            is_parent,
-                            rom))
+            games[parent_name].append(
+                GameEntry(
+                    is_bad,
+                    is_prerelease,
+                    [rd.code for rd in region_data],
+                    languages,
+                    input_index,
+                    revision,
+                    version,
+                    sample,
+                    demo,
+                    beta,
+                    proto,
+                    is_parent,
+                    rom))
     return games
 
 
-def replace_extension(file_extension, file_name):
+def replace_extension(extension, file_name):
     try:
-        return file_name[:file_name.rindex(os.extsep)] + os.extsep + file_extension
+        return file_name[:file_name.rindex(os.extsep)] + os.extsep + extension
     except ValueError:
-        return file_name + os.extsep + file_extension
+        return file_name + os.extsep + extension
 
 
 def main(argv: List[str]):
@@ -398,7 +398,6 @@ def main(argv: List[str]):
         print_help()
         sys.exit(2)
 
-
     games = parse_games(
         dat_file,
         filter_bios,
@@ -407,9 +406,7 @@ def main(argv: List[str]):
         filter_proto,
         filter_beta,
         filter_demo,
-        filter_sample,
-        all_regions,
-        verbose)
+        filter_sample)
 
     for key in games:
         game_entries = games[key]
