@@ -20,29 +20,29 @@ class RegionData:
         self.languages = languages
 
 
-COUNTRY_REGION_CORRELATION = {
-    'ASI': RegionData(re.compile(r'Asia', re.IGNORECASE), ['zh']),  # Language needs checking
-    'AUS': RegionData(re.compile(r'Australia', re.IGNORECASE), ['en']),
-    'BRA': RegionData(re.compile(r'Brazil', re.IGNORECASE), ['pt']),
-    'CAN': RegionData(re.compile(r'Canada', re.IGNORECASE), ['en', 'fr']),  # Language needs checking
-    'CHN': RegionData(re.compile(r'(China)|(Hong Kong)', re.IGNORECASE), ['zh']),
-    'DAN': RegionData(re.compile(r'Denmark', re.IGNORECASE), ['da']),
-    'EUR': RegionData(re.compile(r'(Europe)|(World)', re.IGNORECASE), ['en']),
-    'FRA': RegionData(re.compile(r'France', re.IGNORECASE), ['fr']),
-    'FYN': RegionData(re.compile(r'Finland', re.IGNORECASE), ['fi']),
-    'GER': RegionData(re.compile(r'Germany', re.IGNORECASE), ['de']),
-    'GRE': RegionData(re.compile(r'Greece', re.IGNORECASE), ['el']),
-    'ITA': RegionData(re.compile(r'Italy', re.IGNORECASE), ['it']),
-    'JPN': RegionData(re.compile(r'(Japan)|(World)', re.IGNORECASE), ['ja']),
-    'HOL': RegionData(re.compile(r'Netherlands', re.IGNORECASE), ['nl']),
-    'KOR': RegionData(re.compile(r'Korea', re.IGNORECASE), ['ko']),
-    'NOR': RegionData(re.compile(r'Norway', re.IGNORECASE), ['no']),
-    'RUS': RegionData(re.compile(r'Russia', re.IGNORECASE), ['ru']),
-    'SPA': RegionData(re.compile(r'Spain', re.IGNORECASE), ['es']),
-    'SWE': RegionData(re.compile(r'Sweden', re.IGNORECASE), ['sv']),
-    'USA': RegionData(re.compile(r'(USA)|(World)', re.IGNORECASE), ['en']),
-    'TAI': RegionData(re.compile(r'Taiwan', re.IGNORECASE), ['zh'])  # Language needs checking
-}
+COUNTRY_REGION_CORRELATION = [
+    RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),  # Language needs checking
+    RegionData('AUS', re.compile(r'(Australia)', re.IGNORECASE), ['en']),
+    RegionData('BRA', re.compile(r'(Brazil)', re.IGNORECASE), ['pt']),
+    RegionData('CAN', re.compile(r'(Canada)', re.IGNORECASE), ['en', 'fr']),  # Language needs checking
+    RegionData('CHN', re.compile(r'((China)|(Hong Kong))', re.IGNORECASE), ['zh']),
+    RegionData('DAN', re.compile(r'(Denmark)', re.IGNORECASE), ['da']),
+    RegionData('EUR', re.compile(r'((Europe)|(World))', re.IGNORECASE), ['en']),
+    RegionData('FRA', re.compile(r'(France)', re.IGNORECASE), ['fr']),
+    RegionData('FYN', re.compile(r'(Finland)', re.IGNORECASE), ['fi']),
+    RegionData('GER', re.compile(r'(Germany)', re.IGNORECASE), ['de']),
+    RegionData('GRE', re.compile(r'(Greece)', re.IGNORECASE), ['el']),
+    RegionData('ITA', re.compile(r'(Italy)', re.IGNORECASE), ['it']),
+    RegionData('JPN', re.compile(r'((Japan)|(World))', re.IGNORECASE), ['ja']),
+    RegionData('HOL', re.compile(r'(Netherlands)', re.IGNORECASE), ['nl']),
+    RegionData('KOR', re.compile(r'(Korea)', re.IGNORECASE), ['ko']),
+    RegionData('NOR', re.compile(r'(Norway)', re.IGNORECASE), ['no']),
+    RegionData('RUS', re.compile(r'(Russia)', re.IGNORECASE), ['ru']),
+    RegionData('SPA', re.compile(r'(Spain)', re.IGNORECASE), ['es']),
+    RegionData('SWE', re.compile(r'(Sweden)', re.IGNORECASE), ['sv']),
+    RegionData('USA', re.compile(r'((USA)|(World))', re.IGNORECASE), ['en']),
+    RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh'])  # Language needs checking
+]
 
 
 class GameEntry:
