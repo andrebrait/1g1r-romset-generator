@@ -3,49 +3,54 @@ import os
 import re
 import shutil
 import sys
-from typing import Optional, Match, List, Dict
+from typing import Optional, Match, List, Dict, Pattern
 
 import datafile
 
-NOT_PRERELEASE = "ZZZZZZZZZZ"
-UNSELECTED_REGION = 1000
-BLACKLISTED_ROM_BASE = 500
-country_region_translation = [
-    ('Australia', 'AUS'),
-    ('Brazil', 'BRA'),
-    ('Canada', 'CAN'),
-    ('China', 'CHN'),
-    ('Denmark', 'DAN'),
-    ('France', 'FRA'),
-    ('Finland', 'FYN'),
-    ('Germany', 'GER'),
-    ('Greece', 'GRE'),
-    ('Hong Kong', 'CHN'),  # Needs checking
-    ('Hong Kong', 'HON'),  # Needs checking
-    ('Italy', 'ITA'),
-    ('Japan', 'JPN'),
-    ('Netherlands', 'HOL'),
-    ('Korea', 'KOR'),
-    ('Norway', 'NOR'),
-    ('Russia', 'RUS'),
-    ('Spain', 'SPA'),
-    ('Sweden', 'SWE'),
-    ('USA', 'USA'),
-    ('Taiwan', 'TAI'),
-    ('Asia', 'ASI'),
-    ('Asia', 'JPN'),
-    ('Europe', 'EUR'),
-    ('World', 'EUR'),
-    ('World', 'JPN'),
-    ('World', 'USA')
-]
+UNSELECTED_REGION = 4000000
+NOT_PRERELEASE = 4000000
+
+BLACKLISTED_ROM_BASE = 1000
+
+
+class RegionData:
+    def __init__(self, code: str, pattern: Optional[Pattern[str]], languages: List[str]):
+        self.code = code
+        self.pattern = pattern
+        self.languages = languages
+
+
+COUNTRY_REGION_CORRELATION = {
+    'ASI': RegionData(re.compile(r'Asia', re.IGNORECASE), ['zh']),  # Language needs checking
+    'AUS': RegionData(re.compile(r'Australia', re.IGNORECASE), ['en']),
+    'BRA': RegionData(re.compile(r'Brazil', re.IGNORECASE), ['pt']),
+    'CAN': RegionData(re.compile(r'Canada', re.IGNORECASE), ['en', 'fr']),  # Language needs checking
+    'CHN': RegionData(re.compile(r'(China)|(Hong Kong)', re.IGNORECASE), ['zh']),
+    'DAN': RegionData(re.compile(r'Denmark', re.IGNORECASE), ['da']),
+    'EUR': RegionData(re.compile(r'(Europe)|(World)', re.IGNORECASE), ['en']),
+    'FRA': RegionData(re.compile(r'France', re.IGNORECASE), ['fr']),
+    'FYN': RegionData(re.compile(r'Finland', re.IGNORECASE), ['fi']),
+    'GER': RegionData(re.compile(r'Germany', re.IGNORECASE), ['de']),
+    'GRE': RegionData(re.compile(r'Greece', re.IGNORECASE), ['el']),
+    'ITA': RegionData(re.compile(r'Italy', re.IGNORECASE), ['it']),
+    'JPN': RegionData(re.compile(r'(Japan)|(World)', re.IGNORECASE), ['ja']),
+    'HOL': RegionData(re.compile(r'Netherlands', re.IGNORECASE), ['nl']),
+    'KOR': RegionData(re.compile(r'Korea', re.IGNORECASE), ['ko']),
+    'NOR': RegionData(re.compile(r'Norway', re.IGNORECASE), ['no']),
+    'RUS': RegionData(re.compile(r'Russia', re.IGNORECASE), ['ru']),
+    'SPA': RegionData(re.compile(r'Spain', re.IGNORECASE), ['es']),
+    'SWE': RegionData(re.compile(r'Sweden', re.IGNORECASE), ['sv']),
+    'USA': RegionData(re.compile(r'(USA)|(World)', re.IGNORECASE), ['en']),
+    'TAI': RegionData(re.compile(r'Taiwan', re.IGNORECASE), ['zh'])  # Language needs checking
+}
 
 
 class GameEntry:
     def __init__(
             self,
             is_bad: bool,
-            region_index: int,
+            regions: List[str],
+            languages: List[str],
             input_index: int,
             revision: str,
             version: str,
@@ -53,9 +58,11 @@ class GameEntry:
             demo: str,
             beta: str,
             proto: str,
+            is_parent: bool,
             rom: datafile.rom):
         self.is_bad = is_bad
-        self.region_index = region_index
+        self.regions = regions
+        self.languages = languages
         self.input_index = input_index
         self.revision = revision
         self.version = version
@@ -63,102 +70,131 @@ class GameEntry:
         self.demo = demo
         self.beta = beta
         self.proto = proto
+        self.is_parent = is_parent
         self.rom = rom
 
 
-beta_regex = re.compile('\\(Beta(?:\\s*([a-z0-9.]+))?\\)', re.IGNORECASE)
-proto_regex = re.compile('\\(Proto(?:\\s*([a-z0-9.]+))?\\)', re.IGNORECASE)
-sample_regex = re.compile('\\(Sample(?:\\s*([a-z0-9.]+))?\\)', re.IGNORECASE)
-demo_regex = re.compile('\\(Demo(?:\\s*([a-z0-9.]+))?\\)', re.IGNORECASE)
-rev_regex = re.compile('\\(Rev\\s*([a-z0-9.]+)\\)', re.IGNORECASE)
-version_regex = re.compile('\\(v\\s*([a-z0-9.]+)?\\)', re.IGNORECASE)
-sections_regex = re.compile('\\(([^()]+)\\)')
+sections_regex = re.compile(r'\\(([^()]+)\\)')
+bios_regex = re.compile(re.escape('[BIOS]'), re.IGNORECASE)
+program_regex = re.compile(re.escape('(Program)'), re.IGNORECASE)
+unl_regex = re.compile(re.escape('(Unl)'), re.IGNORECASE)
+beta_regex = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
+proto_regex = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
+sample_regex = re.compile(r'\(Sample(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
+demo_regex = re.compile(r'\(Demo(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
+rev_regex = re.compile(r'\(Rev\\s*([a-z0-9.]+)\)', re.IGNORECASE)
+version_regex = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
+languages_regex = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
+bad_regex = re.compile(re.escape('[b]'), re.IGNORECASE)
 
 
-def parse_revision(name: str) -> str:
+def parse_revision(name: str) -> Optional[str]:
     rev_matcher = rev_regex.search(name)
-    if rev_matcher:
-        return rev_matcher.group(1)
-    return '0'
+    return rev_matcher.group(1) if rev_matcher else None
 
 
-def parse_version(name: str) -> str:
+def parse_version(name: str) -> Optional[str]:
     version_matcher = version_regex.search(name)
-    if version_matcher:
-        return version_matcher.group(1)
-    return '0'
+    return version_matcher.group(1) if version_matcher else None
 
 
-def parse_regions(name: str) -> List[str]:
+def parse_prerelease(match: Optional[Match]) -> Optional[str]:
+    return match.group(1) if match and match.group(1) else None
+
+
+def parse_region_data(name: str) -> List[RegionData]:
     parsed = []
     for section in sections_regex.finditer(name):
         elements = [element.strip() for element in section.group(1).split(',')]
         for element in elements:
-            for country, region in country_region_translation:
-                if country == element:
-                    parsed.append(region)
+            for region_data in COUNTRY_REGION_CORRELATION.values():
+                if region_data.pattern and region_data.pattern.fullmatch(element):
+                    parsed.append(region_data)
     return parsed
 
 
-def get_region_index(region: str, selected_regions: List[str]) -> int:
-    try:
-        return selected_regions.index(region)
-    except ValueError:
-        return UNSELECTED_REGION
+def parse_languages(name: str) -> List[str]:
+    lang_matcher = languages_regex.search(name)
+    languages = []
+    if lang_matcher:
+        for entry in lang_matcher.group(1).split(','):
+            for lang in entry.split('+'):
+                languages.append(lang.lower())
+    return languages
 
 
-def parse_prerelease(match: Optional[Match]) -> str:
-    return match.group(1) if match else NOT_PRERELEASE
+def get_region_data(code: str) -> Optional[RegionData]:
+    code = code.upper() if code else code
+    if code not in COUNTRY_REGION_CORRELATION:
+        # We don't know which region this is, but we should still be able to filter and classify it
+        print('WARNING: unrecognized region (' + code + ')', file=sys.stderr)
+        COUNTRY_REGION_CORRELATION[code] = RegionData(None, [])
+    return COUNTRY_REGION_CORRELATION[code]
+
+
+def get_languages(region_data_list: List[RegionData]) -> List[str]:
+    languages = []
+    for region_data in region_data_list:
+        for language in region_data.languages:
+            if language not in languages:
+                languages.append(language)
+    return languages
 
 
 def parse_games(
         file: str,
-        selected_regions: List[str],
         filter_bios: bool,
+        filter_program: bool,
         filter_unlicensed: bool,
+        filter_proto: bool,
         filter_beta: bool,
         filter_demo: bool,
         filter_sample: bool,
-        filter_proto: bool,
         all_regions: bool,
-        blacklist: List[str],
         verbose: bool) -> Dict[str, List[GameEntry]]:
     games = {}
     root = datafile.parse(file, silence=True)
     for input_index in range(0, len(root.game)):
         game = root.game[input_index]
-        parent_name = game.cloneof if game.cloneof else game.name
         beta_match = beta_regex.search(game.name)
         demo_match = demo_regex.search(game.name)
         sample_match = sample_regex.search(game.name)
         proto_match = proto_regex.search(game.name)
-        if parent_name not in games:
-            games[parent_name] = []
-        if filter_bios and '[BIOS]' in game.name:
+        if filter_bios and bios_regex.search(game.name):
             continue
-        if filter_unlicensed and '(Unl)' in game.name:
+        if filter_unlicensed and unl_regex.search(game.name):
             continue
-        if filter_beta and beta_match is not None:
+        if filter_program and program_regex.search(game.name):
             continue
-        if filter_demo and demo_match is not None:
+        if filter_beta and beta_match:
             continue
-        if filter_sample and sample_match is not None:
+        if filter_demo and demo_match:
             continue
-        if filter_proto and proto_match is not None:
+        if filter_sample and sample_match:
             continue
-        is_bad = '[b]' in game.name
+        if filter_proto and proto_match:
+            continue
+        is_parent = game.cloneof is None
+        is_bad = bad_regex.search(game.name) is not None
         beta = parse_prerelease(beta_match)
         demo = parse_prerelease(demo_match)
         sample = parse_prerelease(sample_match)
         proto = parse_prerelease(proto_match)
         revision = parse_revision(game.name)
         version = parse_version(game.name)
-        region_indexes = []
+        region_data = parse_region_data(game.name)
+        for release in game.release:
+            if release.region and release.region not in regions:
+                region_data.append(get_region_data(release.region))
+        parsed_region_data = parse_region_data(game.name)
+        if parsed_region_data:
+
+
         for release in game.release:
             region_index = get_region_index(release.region, selected_regions)
             if region_index not in region_indexes:
                 region_indexes.append(region_index)
-        for region in parse_regions(game.name):
+        for region in parse_region_data(game.name):
             region_index = get_region_index(region, selected_regions)
             if region_index not in region_indexes:
                 region_indexes.append(region_index)
@@ -174,13 +210,16 @@ def parse_games(
                             file=sys.stderr)
                     region_indexes = [BLACKLISTED_ROM_BASE + x for x in region_indexes]
                     break
+        parent_name = game.cloneof if game.cloneof else game.name
+        if parent_name not in games:
+            games[parent_name] = []
         for rom in game.rom:
             for region_index in region_indexes:
                 if all_regions or region_index < UNSELECTED_REGION:
                     games[parent_name].append(
                         GameEntry(
                             is_bad,
-                            region_index,
+                            regions,
                             input_index,
                             revision,
                             version,
@@ -188,6 +227,7 @@ def parse_games(
                             demo,
                             beta,
                             proto,
+                            is_parent,
                             rom))
     return games
 
@@ -201,11 +241,12 @@ def replace_extension(file_extension, file_name):
 
 def main(argv: List[str]):
     try:
-        opts, args = getopt.getopt(argv, 'hd:r:e:i:b:vo:', [
+        opts, args = getopt.getopt(argv, 'hd:r:e:i:b:vo:l:w:', [
             'help',
             'dat=',
             'regions=',
             'no-bios',
+            'no-program',
             'no-unlicensed',
             'no-beta',
             'no-demo',
@@ -219,8 +260,12 @@ def main(argv: List[str]):
             'extension=',
             'input-dir=',
             'blacklist=',
+            'case-insensitive',
             'verbose',
-            'output-dir='
+            'output-dir=',
+            'languages=',
+            'prioritize-languages',
+            'language-weight='
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -229,11 +274,12 @@ def main(argv: List[str]):
 
     dat_file = None
     filter_bios = False
+    filter_program = False
     filter_unlicensed = False
+    filter_proto = False
     filter_beta = False
     filter_demo = False
     filter_sample = False
-    filter_proto = False
     all_regions = False
     revision_asc = False
     version_asc = False
@@ -243,43 +289,59 @@ def main(argv: List[str]):
     file_extension = None
     input_dir = None
     blacklist = None
+    ignore_case = False
     output_dir = None
+    languages = None
+    prioritize_languages = False
+    language_weight = 1
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
             sys.exit()
         if opt in ('-r', '--regions'):
-            selected_regions = arg.split(',')
+            selected_regions = [x.strip().upper() for x in arg.split(',')]
+        if opt in ('-l', '--languages'):
+            languages = [x.strip().lower() for x in arg.split(',')]
+        if opt in ('-w', '--language-weight'):
+            try:
+                language_weight = int(arg.strip())
+            except ValueError:
+                print('invalid value for language-weight', file=sys.stderr)
+                print_help()
+                sys.exit(2)
+        prioritize_languages |= opt == '--prioritize-languages'
         filter_bios |= opt == '--no-bios' or opt == '--no-all'
+        filter_program |= opt == '--no-program' or opt == '--no-all'
         filter_unlicensed |= opt == '--no-unlicensed' or opt == '--no-all'
+        filter_proto |= opt == '--no-proto' or opt == '--no-all'
         filter_beta |= opt == '--no-beta' or opt == '--no-all'
         filter_demo |= opt == '--no-demo' or opt == '--no-all'
         filter_sample |= opt == '--no-sample' or opt == '--no-all'
-        filter_proto |= opt == '--no-proto' or opt == '--no-all'
         all_regions |= opt == '--all-regions'
         revision_asc |= opt == '--early-revisions'
         version_asc |= opt == '--early-versions'
         verbose |= opt in ('-v', '--verbose')
+        ignore_case |= opt == '--ignore-case'
         if opt in ('-d', '--dat'):
-            dat_file = os.path.expanduser(arg)
+            dat_file = os.path.expanduser(arg.strip())
             if not os.path.isfile(dat_file):
                 print('invalid DAT file: ' + dat_file, file=sys.stderr)
                 print_help()
                 sys.exit(2)
         if opt in ('-e', '--extension'):
-            file_extension = arg.lstrip(os.extsep)
+            file_extension = arg.strip().lstrip(os.extsep)
         if opt == '--input-order':
             index_multiplier = 1
         if opt in ('-b', '--blacklist'):
             blacklist = arg.split(',')
         if opt in ('-i', '--input-dir'):
-            input_dir = os.path.expanduser(arg)
+            input_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(input_dir):
                 print('invalid input directory: ' + input_dir, file=sys.stderr)
                 print_help()
                 sys.exit(2)
         if opt in ('-o', '--output-dir'):
-            output_dir = os.path.expanduser(arg)
+            output_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(output_dir):
                 try:
                     os.makedirs(output_dir)
@@ -303,18 +365,26 @@ def main(argv: List[str]):
         print('output-dir requires an input-dir', file=sys.stderr)
         print_help()
         sys.exit(2)
+    if ignore_case and not blacklist:
+        print("ignore-case only works if there's a blacklist too", file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    if languages is not None and len(languages) == 0:
+        print('invalid list of languages', file=sys.stderr)
+        print_help()
+        sys.exit(2)
+
 
     games = parse_games(
         dat_file,
-        selected_regions,
         filter_bios,
+        filter_program,
         filter_unlicensed,
+        filter_proto,
         filter_beta,
         filter_demo,
         filter_sample,
-        filter_proto,
         all_regions,
-        blacklist,
         verbose)
 
     for key in games:
@@ -358,13 +428,14 @@ def print_help():
     print('Options:', file=sys.stderr)
     print('\t-h,--help\tPrints this usage message', file=sys.stderr)
     print('\t-r,--regions=REGIONS\tA list of regions separated by commas. Ex.: -r USA,EUR,JPN', file=sys.stderr)
+    print('\t-l,--languages=LANGUAGES\tA list of languages separated by commas. Ex.: -l en,es,ru', file=sys.stderr)
     print('\t-d,--dat=DAT_FILE\tThe DAT file to be used', file=sys.stderr)
     print('\t--no-bios\tFilter out BIOSes', file=sys.stderr)
+    print('\t--no-proto\tFilter out prototype ROMs', file=sys.stderr)
     print('\t--no-unlicensed\tFilter out unlicensed ROMs', file=sys.stderr)
     print('\t--no-beta\tFilter out beta ROMs', file=sys.stderr)
     print('\t--no-demo\tFilter out demo ROMs', file=sys.stderr)
     print('\t--no-sample\tFilter out sample ROMs', file=sys.stderr)
-    print('\t--no-proto\tFilter out prototype ROMs', file=sys.stderr)
     print('\t--no-all\tApply all filters above', file=sys.stderr)
     print('\t--all-regions\tIncludes files of unselected regions, if a selected one if not available', file=sys.stderr)
     print('\t--early-revisions\tROMs of earlier revisions will be prioritized', file=sys.stderr)
