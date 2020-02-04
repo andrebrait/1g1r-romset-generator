@@ -283,7 +283,9 @@ def parse_games(
 
 def get_index(ls: List, i: Any, default: int) -> int:
     try:
-        return ls.index(i)
+        if ls:
+            return ls.index(i)
+        return default
     except ValueError:
         return default
 
