@@ -512,7 +512,7 @@ def main(argv: List[str]):
         games.sort(key=lambda g: (
             g.is_bad,
             prefer_prereleases ^ g.is_prerelease,
-            check_blacklist(g.name, blacklist),
+            check_blacklist(g.rom.name, blacklist),
             g.languages if prioritize_languages else g.regions,
             g.regions if prioritize_languages else g.languages,
             prefer_parents and not g.is_parent,
