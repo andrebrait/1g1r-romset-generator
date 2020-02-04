@@ -70,7 +70,7 @@ class GameEntry:
             beta: str,
             proto: str,
             is_parent: bool,
-            rom: datafile.rom):
+            rom: str):
         self.is_bad = is_bad
         self.is_prerelease = is_prerelease
         self.regions = regions
@@ -84,6 +84,9 @@ class GameEntry:
         self.proto = proto
         self.is_parent = is_parent
         self.rom = rom
+
+    def __repr__(self):
+        return str(self.__dict__)
 
     def set_revision(self, revision):
         self.revision = revision
@@ -277,7 +280,7 @@ def parse_games(
                     beta,
                     proto,
                     is_parent,
-                    rom))
+                    rom.name))
     return games
 
 
@@ -514,7 +517,7 @@ def main(argv: List[str]):
         games.sort(key=lambda g: (
             g.is_bad,
             prefer_prereleases ^ g.is_prerelease,
-            check_blacklist(g.rom.name, blacklist),
+            check_blacklist(g.rom, blacklist),
             g.languages if prioritize_languages else g.regions,
             g.regions if prioritize_languages else g.languages,
             prefer_parents and not g.is_parent,
@@ -526,18 +529,20 @@ def main(argv: List[str]):
             to_int_list(g.beta, -1),
             to_int_list(g.proto, -1),
             not g.is_parent,
-            len(g.rom.name)))
+            len(g.rom)))
         if verbose:
             print('Candidate order for [' + key + ']: '
-                  + str([g.rom.name for g in games]), file=sys.stderr)
+                  + str([g.rom for g in games]), file=sys.stderr)
 
     for game, entries in parsed_games.items():
         if not all_regions:
             entries = [x for x in entries if x.regions and x.regions[0] != UNSELECTED]
+        if verbose:
+            print('Handling candidates for game [' + game + ']: ' + str(entries), file=sys.stderr)
         size = len(entries)
         for i in range(0, size):
             entry = entries[i]
-            file_name = entry.rom.name
+            file_name = entry.rom
             if file_extension:
                 file_name = replace_extension(file_extension, file_name)
             if input_dir:
