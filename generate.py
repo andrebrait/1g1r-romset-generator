@@ -481,10 +481,12 @@ def main(argv: List[str]):
             file=sys.stderr)
         print_help()
         sys.exit(2)
-    if ignore_case:
-        blacklist = [re.compile(re.escape(x), re.IGNORECASE) for x in blacklist]
-    else:
-        blacklist = [re.compile(re.escape(x)) for x in blacklist]
+    if blacklist:
+        if ignore_case:
+            blacklist = \
+                [re.compile(re.escape(x), re.IGNORECASE) for x in blacklist]
+        else:
+            blacklist = [re.compile(re.escape(x)) for x in blacklist]
 
     parsed_games = parse_games(
         dat_file,
