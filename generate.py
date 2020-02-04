@@ -4,7 +4,7 @@ import re
 import shutil
 import sys
 from math import copysign
-from typing import Optional, Match, List, Dict, Pattern, Union
+from typing import Optional, Match, List, Dict, Pattern, Any, Callable
 
 import datafile
 
@@ -79,6 +79,24 @@ class GameEntry:
         self.proto = proto
         self.is_parent = is_parent
         self.rom = rom
+
+    def set_revision(self, revision):
+        self.revision = revision
+
+    def set_version(self, version):
+        self.version = version
+
+    def set_sample(self, sample):
+        self.sample = sample
+
+    def set_demo(self, demo):
+        self.demo = demo
+
+    def set_beta(self, beta):
+        self.beta = beta
+
+    def set_proto(self, proto):
+        self.proto = proto
 
 
 sections_regex = re.compile(r'\\(([^()]+)\\)')
@@ -257,6 +275,13 @@ def parse_games(
     return games
 
 
+def get_index(ls: List, i: Any, default: int) -> int:
+    try:
+        return ls.index(i)
+    except ValueError:
+        return default
+
+
 def replace_extension(extension, file_name):
     try:
         return file_name[:file_name.rindex(os.extsep)] + os.extsep + extension
@@ -264,12 +289,45 @@ def replace_extension(extension, file_name):
         return file_name + os.extsep + extension
 
 
-def check_blacklist(ls: List[int], name: str, blacklist: Union[None, List[Pattern]]) -> List[int]:
+def check_blacklist(
+        ls: List[int],
+        name: str,
+        blacklist: Optional[List[Pattern]]) -> List[int]:
     if blacklist:
         for pattern in blacklist:
             if pattern.search(name):
-                return [int(copysign(abs(x) + BLACKLISTED_ROM_BASE, x)) for x in ls]
+                return [int(copysign(abs(x) + BLACKLISTED_ROM_BASE, x))
+                        for x in ls]
     return ls
+
+
+def pad_values(
+        ls: List[GameEntry],
+        fg: Callable[[GameEntry], str],
+        fs: Callable[[GameEntry, str], None]) -> None:
+    padded = add_padding([fg(g) for g in ls])
+    for i in range(0, len(padded)):
+        fs(ls[i], padded[i])
+
+
+def language_value(
+        game: GameEntry,
+        weight: int,
+        selected_languages: List[str]) -> int:
+    return sum([
+        (get_index(selected_languages, lang, -1) + 1) * weight
+        for lang in game.languages])
+
+
+def region_indexes(
+        game: GameEntry,
+        selected_regions: List[str],
+        blacklist: Optional[List[Pattern]]) -> List[int]:
+    indexes = \
+        [get_index(selected_regions, r, UNSELECTED) for r in game.regions]
+    indexes = check_blacklist(indexes, game.rom.name, blacklist)
+    indexes.sort()
+    return indexes
 
 
 def main(argv: List[str]):
@@ -317,15 +375,16 @@ def main(argv: List[str]):
     revision_asc = False
     version_asc = False
     verbose = False
-    index_multiplier = 0
+    input_order = False
     selected_regions = None
     file_extension = None
     input_dir = None
     blacklist = None
     ignore_case = False
     output_dir = None
-    languages = None
+    selected_languages = None
     prioritize_languages = False
+    prefer_parents = False
     language_weight = 1
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -334,7 +393,7 @@ def main(argv: List[str]):
         if opt in ('-r', '--regions'):
             selected_regions = [x.strip().upper() for x in arg.split(',')]
         if opt in ('-l', '--languages'):
-            languages = [x.strip().lower() for x in arg.split(',')]
+            selected_languages = [x.strip().lower() for x in arg.split(',')]
         if opt in ('-w', '--language-weight'):
             try:
                 language_weight = int(arg.strip())
@@ -355,6 +414,7 @@ def main(argv: List[str]):
         version_asc |= opt == '--early-versions'
         verbose |= opt in ('-v', '--verbose')
         ignore_case |= opt == '--ignore-case'
+        input_order |= opt == '--input-order'
         if opt in ('-d', '--dat'):
             dat_file = os.path.expanduser(arg.strip())
             if not os.path.isfile(dat_file):
@@ -363,8 +423,6 @@ def main(argv: List[str]):
                 sys.exit(2)
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.extsep)
-        if opt == '--input-order':
-            index_multiplier = 1
         if opt in ('-b', '--blacklist'):
             blacklist = arg.split(',')
         if opt in ('-i', '--input-dir'):
@@ -390,7 +448,7 @@ def main(argv: List[str]):
         print('invalid region selection', file=sys.stderr)
         print_help()
         sys.exit(2)
-    if (revision_asc or version_asc) and index_multiplier > 0:
+    if (revision_asc or version_asc) and input_order:
         print('early-revisions and early-versions are mutually exclusive with input-order', file=sys.stderr)
         print_help()
         sys.exit(2)
@@ -407,7 +465,7 @@ def main(argv: List[str]):
     else:
         blacklist = [re.compile(re.escape(x)) for x in blacklist]
 
-    games = parse_games(
+    parsed_games = parse_games(
         dat_file,
         filter_bios,
         filter_program,
@@ -417,27 +475,37 @@ def main(argv: List[str]):
         filter_demo,
         filter_sample)
 
-    for key in games:
-        game_entries = games[key]
-        revisions = add_padding([g.revision for g in game_entries])
-        for i in range(i, len(revisions)):
-            game_entries[i].revision = revisions[i]
-        versions = add_padding([g.version for g in game_entries])
-        for i in range(i, len(versions)):
-            game_entries[i].version = versions[i]
-        game_entries.sort(key=lambda x: (
-            x.is_bad,
-            x.is_parent,
-            check_blacklist(to_int_list(x.revision, 1 if revision_asc else -1), x.rom.name, blacklist)
-        ))len(x.rom.name))
-        game_entries.sort(key=lambda x: (x.proto, x.beta, x.demo, x.sample), reverse=True)
-        game_entries.sort(key=lambda x: x.version, reverse=not version_asc)
-        game_entries.sort(key=lambda x: x.revision, reverse=not revision_asc)
-        game_entries.sort(key=lambda x: (x.is_bad, x.region_index, index_multiplier * x.input_index))
+    for key in parsed_games:
+        games = parsed_games[key]
+        pad_values(games, lambda g: g.version, lambda g, s: g.set_version(s))
+        pad_values(games, lambda g: g.revision, lambda g, s: g.set_revision(s))
+        pad_values(games, lambda g: g.sample, lambda g, s: g.set_sample(s))
+        pad_values(games, lambda g: g.demo, lambda g, s: g.set_demo(s))
+        pad_values(games, lambda g: g.beta, lambda g, s: g.set_beta(s))
+        pad_values(games, lambda g: g.proto, lambda g, s: g.set_proto(s))
+        games.sort(key=lambda g: (
+            g.is_bad,
+            language_value(g, language_weight, selected_languages)
+            if prioritize_languages
+            else region_indexes(g, selected_regions, blacklist),
+            region_indexes(g, selected_regions, blacklist)
+            if prioritize_languages
+            else language_value(g, language_weight, selected_languages),
+            prefer_parents and not g.is_parent,
+            g.input_index if input_order else 0,
+            to_int_list(g.revision, 1 if revision_asc else -1),
+            to_int_list(g.version, 1 if version_asc else -1),
+            to_int_list(g.sample, -1),
+            to_int_list(g.demo, -1),
+            to_int_list(g.beta, -1),
+            to_int_list(g.proto, -1),
+            not g.is_parent,
+            len(g.rom.name)))
         if verbose:
-            print('Candidate order for [' + key + ']: ' + str([x.rom.name for x in game_entries]), file=sys.stderr)
+            print('Candidate order for [' + key + ']: '
+                  + str([g.rom.name for g in games]), file=sys.stderr)
 
-    for game, entries in games.items():
+    for game, entries in parsed_games.items():
         for entry in entries:
             file_name = entry.rom.name
             if file_extension:
