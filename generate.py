@@ -485,6 +485,7 @@ def main(argv: List[str]):
         pad_values(games, lambda g: g.proto, lambda g, s: g.set_proto(s))
         games.sort(key=lambda g: (
             g.is_bad,
+            g.is_prerelease,
             language_value(g, language_weight, selected_languages)
             if prioritize_languages
             else region_indexes(g, selected_regions, blacklist),
