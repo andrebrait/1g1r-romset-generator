@@ -532,11 +532,11 @@ def main(argv: List[str]):
                   + str([g.rom.name for g in games]), file=sys.stderr)
 
     for game, entries in parsed_games.items():
+        if not all_regions:
+            entries = [x for x in entries if x.regions and x.regions[0] != UNSELECTED]
         size = len(entries)
         for i in range(0, size):
             entry = entries[i]
-            if not all_regions and entry.regions[0] == UNSELECTED:
-                continue
             file_name = entry.rom.name
             if file_extension:
                 file_name = replace_extension(file_extension, file_name)
@@ -560,7 +560,7 @@ def main(argv: List[str]):
                         print('WARNING: candidate [' + file_name
                               + '] not found, trying next one', file=sys.stderr)
                     if i == size - 1:
-                        print('WARNING: no elegible candidates for [' + game
+                        print('WARNING: no eligible candidates for [' + game
                               + '] have been found!', file=sys.stderr)
             else:
                 print(file_name)
