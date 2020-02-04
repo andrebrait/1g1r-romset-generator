@@ -3,7 +3,6 @@ import os
 import re
 import shutil
 import sys
-from math import copysign
 from typing import Optional, Match, List, Dict, Pattern, Any, Callable
 
 import datafile
@@ -26,11 +25,16 @@ class RegionData:
 
 
 COUNTRY_REGION_CORRELATION = [
-    RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),  # Language needs checking
+    # Language needs checking
+    RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),
     RegionData('AUS', re.compile(r'(Australia)', re.IGNORECASE), ['en']),
     RegionData('BRA', re.compile(r'(Brazil)', re.IGNORECASE), ['pt']),
-    RegionData('CAN', re.compile(r'(Canada)', re.IGNORECASE), ['en', 'fr']),  # Language needs checking
-    RegionData('CHN', re.compile(r'((China)|(Hong Kong))', re.IGNORECASE), ['zh']),
+    # Language needs checking
+    RegionData('CAN', re.compile(r'(Canada)', re.IGNORECASE), ['en', 'fr']),
+    RegionData(
+        'CHN',
+        re.compile(r'((China)|(Hong Kong))', re.IGNORECASE),
+        ['zh']),
     RegionData('DAN', re.compile(r'(Denmark)', re.IGNORECASE), ['da']),
     RegionData('EUR', re.compile(r'((Europe)|(World))', re.IGNORECASE), ['en']),
     RegionData('FRA', re.compile(r'(France)', re.IGNORECASE), ['fr']),
@@ -46,7 +50,8 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('SPA', re.compile(r'(Spain)', re.IGNORECASE), ['es']),
     RegionData('SWE', re.compile(r'(Sweden)', re.IGNORECASE), ['sv']),
     RegionData('USA', re.compile(r'((USA)|(World))', re.IGNORECASE), ['en']),
-    RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh'])  # Language needs checking
+    # Language needs checking
+    RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh'])
 ]
 
 
@@ -256,12 +261,13 @@ def parse_games(
         parent_name = game.cloneof if game.cloneof else game.name
         if parent_name not in games:
             games[parent_name] = []
+        region_codes = [rd.code for rd in region_data]
         for rom in game.rom:
             games[parent_name].append(
                 GameEntry(
                     is_bad,
                     is_prerelease,
-                    [rd.code for rd in region_data],
+                    region_codes,
                     languages,
                     input_index,
                     revision,
@@ -289,16 +295,12 @@ def replace_extension(extension, file_name):
         return file_name + os.extsep + extension
 
 
-def check_blacklist(
-        ls: List[int],
-        name: str,
-        blacklist: Optional[List[Pattern]]) -> List[int]:
+def check_blacklist(name: str, blacklist: Optional[List[Pattern]]) -> bool:
     if blacklist:
         for pattern in blacklist:
             if pattern.search(name):
-                return [int(copysign(abs(x) + BLACKLISTED_ROM_BASE, x))
-                        for x in ls]
-    return ls
+                return True
+    return False
 
 
 def pad_values(
@@ -319,15 +321,11 @@ def language_value(
         for lang in game.languages])
 
 
-def region_indexes(
-        game: GameEntry,
-        selected_regions: List[str],
-        blacklist: Optional[List[Pattern]]) -> List[int]:
+def region_indexes(game: GameEntry, selected_regions: List[str]) -> List[int]:
     indexes = \
         [get_index(selected_regions, r, UNSELECTED) for r in game.regions]
-    indexes = check_blacklist(indexes, game.rom.name, blacklist)
     indexes.sort()
-    return indexes
+    return indexes if indexes else [UNSELECTED]
 
 
 def main(argv: List[str]):
@@ -356,7 +354,9 @@ def main(argv: List[str]):
             'output-dir=',
             'languages=',
             'prioritize-languages',
-            'language-weight='
+            'language-weight=',
+            'prefer-parents',
+            'prefer-prereleases'
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -385,6 +385,7 @@ def main(argv: List[str]):
     selected_languages = None
     prioritize_languages = False
     prefer_parents = False
+    prefer_prereleases = False
     language_weight = 1
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -415,6 +416,8 @@ def main(argv: List[str]):
         verbose |= opt in ('-v', '--verbose')
         ignore_case |= opt == '--ignore-case'
         input_order |= opt == '--input-order'
+        prefer_parents |= opt == '--prefer-parents'
+        prefer_prereleases |= opt == '--prefer-prereleases'
         if opt in ('-d', '--dat'):
             dat_file = os.path.expanduser(arg.strip())
             if not os.path.isfile(dat_file):
@@ -449,7 +452,23 @@ def main(argv: List[str]):
         print_help()
         sys.exit(2)
     if (revision_asc or version_asc) and input_order:
-        print('early-revisions and early-versions are mutually exclusive with input-order', file=sys.stderr)
+        print(
+            'early-revisions and early-versions are mutually exclusive '
+            'with input-order',
+            file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    if (revision_asc or version_asc) and prefer_parents:
+        print(
+            'early-revisions and early-versions are mutually exclusive '
+            'with prefer-parents',
+            file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    if prefer_parents and input_order:
+        print(
+            'prefer-parents is mutually exclusive with input-order',
+            file=sys.stderr)
         print_help()
         sys.exit(2)
     if output_dir and not input_dir:
@@ -457,7 +476,9 @@ def main(argv: List[str]):
         print_help()
         sys.exit(2)
     if ignore_case and not blacklist:
-        print("ignore-case only works if there's a blacklist too", file=sys.stderr)
+        print(
+            "ignore-case only works if there's a blacklist too",
+            file=sys.stderr)
         print_help()
         sys.exit(2)
     if ignore_case:
@@ -483,15 +504,15 @@ def main(argv: List[str]):
         pad_values(games, lambda g: g.demo, lambda g, s: g.set_demo(s))
         pad_values(games, lambda g: g.beta, lambda g, s: g.set_beta(s))
         pad_values(games, lambda g: g.proto, lambda g, s: g.set_proto(s))
+        for i in games:
+            i.regions = region_indexes(i, selected_regions)
+            i.languages = language_value(i, language_weight, selected_languages)
         games.sort(key=lambda g: (
             g.is_bad,
-            g.is_prerelease,
-            language_value(g, language_weight, selected_languages)
-            if prioritize_languages
-            else region_indexes(g, selected_regions, blacklist),
-            region_indexes(g, selected_regions, blacklist)
-            if prioritize_languages
-            else language_value(g, language_weight, selected_languages),
+            prefer_prereleases ^ g.is_prerelease,
+            check_blacklist(g.name, blacklist),
+            g.languages if prioritize_languages else g.regions,
+            g.regions if prioritize_languages else g.languages,
             prefer_parents and not g.is_parent,
             g.input_index if input_order else 0,
             to_int_list(g.revision, 1 if revision_asc else -1),
@@ -507,7 +528,11 @@ def main(argv: List[str]):
                   + str([g.rom.name for g in games]), file=sys.stderr)
 
     for game, entries in parsed_games.items():
-        for entry in entries:
+        size = len(entries)
+        for i in range(0, size):
+            entry = entries[i]
+            if not all_regions and entry.regions[0] == UNSELECTED:
+                continue
             file_name = entry.rom.name
             if file_extension:
                 file_name = replace_extension(file_extension, file_name)
@@ -515,7 +540,8 @@ def main(argv: List[str]):
                 full_path = os.path.join(input_dir, file_name)
                 if os.path.isfile(full_path):
                     if output_dir:
-                        print('Copying [' + file_name + '] to [' + output_dir + ']')
+                        print('Copying [' + file_name + '] to ['
+                              + output_dir + ']')
                         shutil.copy2(full_path, output_dir)
                     else:
                         print(file_name)
@@ -523,21 +549,32 @@ def main(argv: List[str]):
                 else:
                     if verbose:
                         print(
-                            "WARNING [" + game + "]: candidate [" + file_name + "] not found, trying next one",
+                            'WARNING [' + game + ']: candidate [' + file_name
+                            + '] not found, trying next one',
                             file=sys.stderr)
                     else:
-                        print("WARNING: candidate [" + file_name + "] not found, trying next one", file=sys.stderr)
+                        print('WARNING: candidate [' + file_name
+                              + '] not found, trying next one', file=sys.stderr)
+                    if i == size - 1:
+                        print('WARNING: no elegible candidates for [' + game
+                              + '] have been found!', file=sys.stderr)
             else:
                 print(file_name)
                 break
 
 
 def print_help():
-    print('Usage: python3 generate.py [options] -d input_file.dat', file=sys.stderr)
+    print(
+        'Usage: python3 generate.py [options] -d input_file.dat',
+        file=sys.stderr)
     print('Options:', file=sys.stderr)
     print('\t-h,--help\tPrints this usage message', file=sys.stderr)
-    print('\t-r,--regions=REGIONS\tA list of regions separated by commas. Ex.: -r USA,EUR,JPN', file=sys.stderr)
-    print('\t-l,--languages=LANGUAGES\tA list of languages separated by commas. Ex.: -l en,es,ru', file=sys.stderr)
+    print(
+        '\t-r,--regions=REGIONS\tA list of regions separated by commas. '
+        'Ex.: -r USA,EUR,JPN', file=sys.stderr)
+    print(
+        '\t-l,--languages=LANGUAGES\tA list of languages separated by commas. '
+        'Ex.: -l en,es,ru', file=sys.stderr)
     print('\t-d,--dat=DAT_FILE\tThe DAT file to be used', file=sys.stderr)
     print('\t--no-bios\tFilter out BIOSes', file=sys.stderr)
     print('\t--no-proto\tFilter out prototype ROMs', file=sys.stderr)
@@ -546,17 +583,39 @@ def print_help():
     print('\t--no-demo\tFilter out demo ROMs', file=sys.stderr)
     print('\t--no-sample\tFilter out sample ROMs', file=sys.stderr)
     print('\t--no-all\tApply all filters above', file=sys.stderr)
-    print('\t--all-regions\tIncludes files of unselected regions, if a selected one if not available', file=sys.stderr)
-    print('\t--early-revisions\tROMs of earlier revisions will be prioritized', file=sys.stderr)
-    print('\t--early-versions\tROMs of earlier versions will be prioritized', file=sys.stderr)
-    print('\t--input-order\tROMs will be prioritized by the order they appear in the DAT file', file=sys.stderr)
-    print('\t-e,--extension=EXTENSION\tROM names will use this extension. Ex.: -e zip', file=sys.stderr)
     print(
-        '\t-b,--blacklist=WORDS\tROMs containing these strings will be avoided. Ex.: -b "Virtual Console,GameCube"',
+        '\t--all-regions\tIncludes files of unselected regions, '
+        'if a selected one if not available',
         file=sys.stderr)
-    print('\t-v,--verbose\tPrints more messages (useful when troubleshooting)',file=sys.stderr)
-    print('\t-i,--input-dir=PATH\tProvides an input directory (i.e.: where your ROMs are)', file=sys.stderr)
-    print('\t-o,--output-dir=PATH\tIf provided, ROMs will be copied to an an output directory', file=sys.stderr)
+    print(
+        '\t--early-revisions\tROMs of earlier revisions will be prioritized',
+        file=sys.stderr)
+    print(
+        '\t--early-versions\tROMs of earlier versions will be prioritized',
+        file=sys.stderr)
+    print(
+        '\t--input-order\tROMs will be prioritized by the order they '
+        'appear in the DAT file',
+        file=sys.stderr)
+    print(
+        '\t-e,--extension=EXTENSION\tROM names will use this extension. '
+        'Ex.: -e zip',
+        file=sys.stderr)
+    print(
+        '\t-b,--blacklist=WORDS\tROMs containing these words will be avoided. '
+        'Ex.: -b "Virtual Console,GameCube"',
+        file=sys.stderr)
+    print(
+        '\t-v,--verbose\tPrints more messages (useful when troubleshooting)',
+        file=sys.stderr)
+    print(
+        '\t-i,--input-dir=PATH\tProvides an input directory '
+        '(i.e.: where your ROMs are)',
+        file=sys.stderr)
+    print(
+        '\t-o,--output-dir=PATH\tIf provided, ROMs will be copied to an an '
+        'output directory',
+        file=sys.stderr)
 
 
 if __name__ == '__main__':
