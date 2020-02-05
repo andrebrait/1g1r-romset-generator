@@ -60,7 +60,7 @@ class GameEntry:
             self,
             is_bad: bool,
             is_prerelease: bool,
-            regions: List[str],
+            region: str,
             languages: List[str],
             input_index: int,
             revision: str,
@@ -73,7 +73,7 @@ class GameEntry:
             rom: str):
         self.is_bad = is_bad
         self.is_prerelease = is_prerelease
-        self.regions = regions
+        self.region = region
         self.languages = languages
         self.input_index = input_index
         self.revision = revision
@@ -84,38 +84,46 @@ class GameEntry:
         self.proto = proto
         self.is_parent = is_parent
         self.rom = rom
+        self.region_score: Optional[int] = None
+        self.languages_score: Optional[int] = None
+        self.revision_int: Optional[List[int]] = None
+        self.version_int: Optional[List[int]] = None
+        self.sample_int: Optional[List[int]] = None
+        self.demo_int: Optional[List[int]] = None
+        self.beta_int: Optional[List[int]] = None
+        self.proto_int: Optional[List[int]] = None
 
     def __repr__(self):
         return str(self.__dict__)
 
-    def set_revision(self, revision):
+    def set_revision(self, revision: str):
         self.revision = revision
 
-    def set_version(self, version):
+    def set_version(self, version: str):
         self.version = version
 
-    def set_sample(self, sample):
+    def set_sample(self, sample: str):
         self.sample = sample
 
-    def set_demo(self, demo):
+    def set_demo(self, demo: str):
         self.demo = demo
 
-    def set_beta(self, beta):
+    def set_beta(self, beta: str):
         self.beta = beta
 
-    def set_proto(self, proto):
+    def set_proto(self, proto: str):
         self.proto = proto
 
 
-sections_regex = re.compile(r'\\(([^()]+)\\)')
+sections_regex = re.compile(r'\(([^()]+)\)')
 bios_regex = re.compile(re.escape('[BIOS]'), re.IGNORECASE)
-program_regex = re.compile(re.escape('(Program)'), re.IGNORECASE)
+program_regex = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
 unl_regex = re.compile(re.escape('(Unl)'), re.IGNORECASE)
 beta_regex = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 proto_regex = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 sample_regex = re.compile(r'\(Sample(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 demo_regex = re.compile(r'\(Demo(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-rev_regex = re.compile(r'\(Rev\\s*([a-z0-9.]+)\)', re.IGNORECASE)
+rev_regex = re.compile(r'\(Rev\s*([a-z0-9.]+)\)', re.IGNORECASE)
 version_regex = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
 languages_regex = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
 bad_regex = re.compile(re.escape('[b]'), re.IGNORECASE)
@@ -266,21 +274,22 @@ def parse_games(
             games[parent_name] = []
         region_codes = [rd.code for rd in region_data]
         for rom in game.rom:
-            games[parent_name].append(
-                GameEntry(
-                    is_bad,
-                    is_prerelease,
-                    region_codes,
-                    languages,
-                    input_index,
-                    revision,
-                    version,
-                    sample,
-                    demo,
-                    beta,
-                    proto,
-                    is_parent,
-                    rom.name))
+            for region in region_codes:
+                games[parent_name].append(
+                    GameEntry(
+                        is_bad,
+                        is_prerelease,
+                        region,
+                        languages,
+                        input_index,
+                        revision,
+                        version,
+                        sample,
+                        demo,
+                        beta,
+                        proto,
+                        is_parent,
+                        rom.name))
     return games
 
 
@@ -318,19 +327,12 @@ def pad_values(
 
 
 def language_value(
-        game: GameEntry,
+        languages: List[str],
         weight: int,
         selected_languages: List[str]) -> int:
     return sum([
-        (get_index(selected_languages, lang, -1) + 1) * weight
-        for lang in game.languages])
-
-
-def region_indexes(game: GameEntry, selected_regions: List[str]) -> List[int]:
-    indexes = \
-        [get_index(selected_regions, r, UNSELECTED) for r in game.regions]
-    indexes.sort()
-    return indexes if indexes else [UNSELECTED]
+        (get_index(selected_languages, lang, -1) + 1) * weight * -1
+        for lang in languages])
 
 
 def main(argv: List[str]):
@@ -391,7 +393,7 @@ def main(argv: List[str]):
     prioritize_languages = False
     prefer_parents = False
     prefer_prereleases = False
-    language_weight = 1
+    language_weight = 3
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
@@ -399,10 +401,17 @@ def main(argv: List[str]):
         if opt in ('-r', '--regions'):
             selected_regions = [x.strip().upper() for x in arg.split(',')]
         if opt in ('-l', '--languages'):
-            selected_languages = [x.strip().lower() for x in arg.split(',')]
+            selected_languages = [x.strip().lower()
+                                  for x in reversed(arg.split(','))]
         if opt in ('-w', '--language-weight'):
             try:
                 language_weight = int(arg.strip())
+                if language_weight <= 0:
+                    print(
+                        'language-weight must be a positive integer',
+                        file=sys.stderr)
+                    print_help()
+                    sys.exit(2)
             except ValueError:
                 print('invalid value for language-weight', file=sys.stderr)
                 print_help()
@@ -488,8 +497,8 @@ def main(argv: List[str]):
         sys.exit(2)
     if blacklist:
         if ignore_case:
-            blacklist = \
-                [re.compile(re.escape(x), re.IGNORECASE) for x in blacklist]
+            blacklist = [re.compile(re.escape(x), re.IGNORECASE)
+                         for x in blacklist]
         else:
             blacklist = [re.compile(re.escape(x)) for x in blacklist]
 
@@ -512,33 +521,47 @@ def main(argv: List[str]):
         pad_values(games, lambda g: g.beta, lambda g, s: g.set_beta(s))
         pad_values(games, lambda g: g.proto, lambda g, s: g.set_proto(s))
         for i in games:
-            i.regions = region_indexes(i, selected_regions)
-            i.languages = language_value(i, language_weight, selected_languages)
+            i.region_score = get_index(selected_regions, i.region, UNSELECTED)
+            i.languages_score = sum([
+                (get_index(selected_languages, lang, -1) + 1) * -language_weight
+                for lang in i.languages])
+            i.revision_int = to_int_list(
+                i.revision,
+                1 if revision_asc else -1)
+            i.version_int = to_int_list(i.version, 1 if version_asc else -1)
+            i.sample_int = to_int_list(i.sample, -1)
+            i.demo_int = to_int_list(i.demo, -1)
+            i.beta_int = to_int_list(i.beta, -1)
+            i.proto_int = to_int_list(i.proto, -1)
         games.sort(key=lambda g: (
             g.is_bad,
             prefer_prereleases ^ g.is_prerelease,
             check_blacklist(g.rom, blacklist),
-            g.languages if prioritize_languages else g.regions,
-            g.regions if prioritize_languages else g.languages,
+            g.languages_score if prioritize_languages else g.region_score,
+            g.region_score if prioritize_languages else g.languages_score,
             prefer_parents and not g.is_parent,
             g.input_index if input_order else 0,
-            to_int_list(g.revision, 1 if revision_asc else -1),
-            to_int_list(g.version, 1 if version_asc else -1),
-            to_int_list(g.sample, -1),
-            to_int_list(g.demo, -1),
-            to_int_list(g.beta, -1),
-            to_int_list(g.proto, -1),
+            g.revision_int,
+            g.version_int,
+            g.sample_int,
+            g.demo_int,
+            g.beta_int,
+            g.proto_int,
             not g.is_parent,
+            -len(g.languages),
             len(g.rom)))
         if verbose:
-            print('Candidate order for [' + key + ']: '
-                  + str([g.rom for g in games]), file=sys.stderr)
+            print(
+                'Candidate order for [%s]: %s' % (key, [g.rom for g in games]),
+                file=sys.stderr)
 
     for game, entries in parsed_games.items():
         if not all_regions:
-            entries = [x for x in entries if x.regions and x.regions[0] != UNSELECTED]
+            entries = [x for x in entries if x.region != UNSELECTED]
         if verbose:
-            print('Handling candidates for game [' + game + ']: ' + str(entries), file=sys.stderr)
+            print(
+                'Handling candidates for game [%s]: %s' % (game, entries),
+                file=sys.stderr)
         size = len(entries)
         for i in range(0, size):
             entry = entries[i]
@@ -549,8 +572,7 @@ def main(argv: List[str]):
                 full_path = os.path.join(input_dir, file_name)
                 if os.path.isfile(full_path):
                     if output_dir:
-                        print('Copying [' + file_name + '] to ['
-                              + output_dir + ']')
+                        print('Copying [%s] to [%s]' % (file_name, output_dir))
                         shutil.copy2(full_path, output_dir)
                     else:
                         print(file_name)
@@ -558,15 +580,18 @@ def main(argv: List[str]):
                 else:
                     if verbose:
                         print(
-                            'WARNING [' + game + ']: candidate [' + file_name
-                            + '] not found, trying next one',
+                            'WARNING [%s]: candidate [%s] not found, '
+                            'trying next one' % (game, file_name),
                             file=sys.stderr)
                     else:
-                        print('WARNING: candidate [' + file_name
-                              + '] not found, trying next one', file=sys.stderr)
+                        print(
+                            'WARNING: candidate [%s] not found, '
+                            'trying next one' % file_name, file=sys.stderr)
                     if i == size - 1:
-                        print('WARNING: no eligible candidates for [' + game
-                              + '] have been found!', file=sys.stderr)
+                        print(
+                            'WARNING: no eligible candidates for [%s] '
+                            'have been found!' % game,
+                            file=sys.stderr)
             else:
                 print(file_name)
                 break
