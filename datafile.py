@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 #
-# Generated Fri Jan 24 11:57:16 2020 by generateDS.py version 2.35.8.
-# Python 3.7.6 (default, Dec 19 2019, 09:25:23)  [GCC 9.2.1 20191130]
+# Generated Tue Feb  4 18:15:01 2020 by generateDS.py version 2.35.11.
+# Python 3.6.9 (default, Nov  7 2019, 10:44:02)  [GCC 8.3.0]
 #
 # Command line options:
 #   ('-o', 'datafile.py')
@@ -12,7 +12,7 @@
 #   datafile/datafile.xsd
 #
 # Command line:
-#   /usr/local/bin/generateDS -o "datafile.py" datafile/datafile.xsd
+#   /home/andre/.local/bin/generateDS -o "datafile.py" datafile/datafile.xsd
 #
 # Current working directory (os.getcwd()):
 #   1g1r-romset-generator
@@ -170,7 +170,7 @@ except ImportError:
 try:
     from generatedssuper import GeneratedsSuper
 except ImportError as exp:
-
+    
     class GeneratedsSuper(object):
         __hash__ = object.__hash__
         tzoff_pattern = re_.compile(r'(\+|-)((0\d|1[0-3]):[0-5]\d|14:00)$')
@@ -637,8 +637,8 @@ except ImportError as exp:
                     self.gds_elementtree_node_.sourceline)
             else:
                 return ""
-
-
+    
+    
     def getSubclassFromModule_(module, class_):
         '''Get the subclass of a class from a specific module.'''
         name = class_.__name__ + 'Sub'
