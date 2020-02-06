@@ -133,8 +133,8 @@ def to_int_list(string: str, multiplier: int) -> List[int]:
     return [multiplier * ord(x) for x in string]
 
 
-def get(ls: List[int], i: int) -> int:
-    return ls[i] if i < len(ls) else 0
+def get(ls: List[int], index: int) -> int:
+    return ls[index] if index < len(ls) else 0
 
 
 def add_padding(strings: List[str]) -> List[str]:
@@ -293,10 +293,10 @@ def parse_games(
     return games
 
 
-def get_index(ls: List, i: Any, default: int) -> int:
+def get_index(ls: List, item: Any, default: int) -> int:
     try:
         if ls:
-            return ls.index(i)
+            return ls.index(item)
         return default
     except ValueError:
         return default
@@ -318,12 +318,12 @@ def check_blacklist(name: str, blacklist: Optional[List[Pattern]]) -> bool:
 
 
 def pad_values(
-        ls: List[GameEntry],
-        fg: Callable[[GameEntry], str],
-        fs: Callable[[GameEntry, str], None]) -> None:
-    padded = add_padding([fg(g) for g in ls])
+        games: List[GameEntry],
+        get_function: Callable[[GameEntry], str],
+        set_function: Callable[[GameEntry, str], None]) -> None:
+    padded = add_padding([get_function(g) for g in games])
     for i in range(0, len(padded)):
-        fs(ls[i], padded[i])
+        set_function(games[i], padded[i])
 
 
 def language_value(
