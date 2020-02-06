@@ -356,7 +356,7 @@ def main(argv: List[str]):
             'extension=',
             'input-dir=',
             'blacklist=',
-            'case-insensitive',
+            'ignore-case',
             'verbose',
             'output-dir=',
             'languages=',
@@ -364,7 +364,8 @@ def main(argv: List[str]):
             'language-weight=',
             'prefer-parents',
             'prefer-prereleases',
-            'all-regions-with-lang'
+            'all-regions-with-lang',
+            'debug'
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -396,6 +397,7 @@ def main(argv: List[str]):
     prefer_parents = False
     prefer_prereleases = False
     language_weight = 3
+    debug = False
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
@@ -460,6 +462,9 @@ def main(argv: List[str]):
                     print('invalid output DIR: ' + output_dir, file=sys.stderr)
                     print_help()
                     sys.exit(2)
+        debug |= opt == '--debug'
+        if debug:
+            verbose = True
     if not dat_file:
         print('DAT file is required', file=sys.stderr)
         print_help()
@@ -568,7 +573,7 @@ def main(argv: List[str]):
         if not all_regions:
             entries = [x for x in entries if x.region_score != UNSELECTED
                        or (all_regions_with_lang and x.languages_score < 0)]
-        if verbose:
+        if debug:
             print(
                 'Handling candidates for game [%s]: %s' % (game, entries),
                 file=sys.stderr)
@@ -621,6 +626,9 @@ def print_help():
         'Ex.: -l en,es,ru', file=sys.stderr)
     print('\t-d,--dat=DAT_FILE\tThe DAT file to be used', file=sys.stderr)
     print('\t--no-bios\tFilter out BIOSes', file=sys.stderr)
+    print(
+        '\t--no-program\tFilter out Programs and Test Programs',
+        file=sys.stderr)
     print('\t--no-proto\tFilter out prototype ROMs', file=sys.stderr)
     print('\t--no-unlicensed\tFilter out unlicensed ROMs', file=sys.stderr)
     print('\t--no-beta\tFilter out beta ROMs', file=sys.stderr)
@@ -630,6 +638,10 @@ def print_help():
     print(
         '\t--all-regions\tIncludes files of unselected regions, '
         'if a selected one if not available',
+        file=sys.stderr)
+    print(
+        '\t--all-regions-with-lang\tSame as --all-regions, but only if a ROM '
+        'has at least one selected language',
         file=sys.stderr)
     print(
         '\t--early-revisions\tROMs of earlier revisions will be prioritized',
@@ -642,12 +654,22 @@ def print_help():
         'appear in the DAT file',
         file=sys.stderr)
     print(
+        '\t--prefer-parents\tParent ROMs will be prioritized over clones',
+        file=sys.stderr)
+    print(
+        '\t--prefer-prereleases\tPrerelease (Beta, Proto, etc.) ROMs will be '
+        'prioritized',
+        file=sys.stderr)
+    print(
         '\t-e,--extension=EXTENSION\tROM names will use this extension. '
         'Ex.: -e zip',
         file=sys.stderr)
     print(
         '\t-b,--blacklist=WORDS\tROMs containing these words will be avoided. '
         'Ex.: -b "Virtual Console,GameCube"',
+        file=sys.stderr)
+    print(
+        '\t--ignore-case\tIf set, the blacklist will be case-insensitive ',
         file=sys.stderr)
     print(
         '\t-v,--verbose\tPrints more messages (useful when troubleshooting)',
@@ -659,6 +681,9 @@ def print_help():
     print(
         '\t-o,--output-dir=PATH\tIf provided, ROMs will be copied to an an '
         'output directory',
+        file=sys.stderr)
+    print(
+        '\t--debug\tPrints even more messages (useful when troubleshooting)',
         file=sys.stderr)
 
 
