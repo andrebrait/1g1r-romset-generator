@@ -363,7 +363,8 @@ def main(argv: List[str]):
             'prioritize-languages',
             'language-weight=',
             'prefer-parents',
-            'prefer-prereleases'
+            'prefer-prereleases',
+            'all-regions-with-lang'
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -379,6 +380,7 @@ def main(argv: List[str]):
     filter_demo = False
     filter_sample = False
     all_regions = False
+    all_regions_with_lang = False
     revision_asc = False
     version_asc = False
     verbose = False
@@ -425,6 +427,7 @@ def main(argv: List[str]):
         filter_demo |= opt == '--no-demo' or opt == '--no-all'
         filter_sample |= opt == '--no-sample' or opt == '--no-all'
         all_regions |= opt == '--all-regions'
+        all_regions_with_lang |= opt == '--all-regions-with-lang'
         revision_asc |= opt == '--early-revisions'
         version_asc |= opt == '--early-versions'
         verbose |= opt in ('-v', '--verbose')
@@ -495,6 +498,12 @@ def main(argv: List[str]):
             file=sys.stderr)
         print_help()
         sys.exit(2)
+    if all_regions and all_regions_with_lang:
+        print(
+            'all-regions is mutually exclusive with all-regions-with-lang',
+            file=sys.stderr)
+        print_help()
+        sys.exit(2)
     if blacklist:
         if ignore_case:
             blacklist = [re.compile(re.escape(x), re.IGNORECASE)
@@ -557,7 +566,8 @@ def main(argv: List[str]):
 
     for game, entries in parsed_games.items():
         if not all_regions:
-            entries = [x for x in entries if x.region != UNSELECTED]
+            entries = [x for x in entries if x.region_score != UNSELECTED
+                       or (all_regions_with_lang and x.languages_score < 0)]
         if verbose:
             print(
                 'Handling candidates for game [%s]: %s' % (game, entries),
