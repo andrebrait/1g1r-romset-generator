@@ -55,6 +55,30 @@ COUNTRY_REGION_CORRELATION = [
 ]
 
 
+class Score:
+    def __init__(
+            self,
+            region: int,
+            languages: int,
+            revision: List[int],
+            version: List[int],
+            sample: List[int],
+            demo: List[int],
+            beta: List[int],
+            proto: List[int]):
+        self.region = region
+        self.languages = languages
+        self.revision = revision
+        self.version = version
+        self.sample = sample
+        self.demo = demo
+        self.beta = beta
+        self.proto = proto
+
+    def __repr__(self):
+        return str(self.__dict__)
+
+
 class GameEntry:
     def __init__(
             self,
@@ -84,34 +108,27 @@ class GameEntry:
         self.proto = proto
         self.is_parent = is_parent
         self.rom = rom
-        self.region_score: Optional[int] = None
-        self.languages_score: Optional[int] = None
-        self.revision_int: Optional[List[int]] = None
-        self.version_int: Optional[List[int]] = None
-        self.sample_int: Optional[List[int]] = None
-        self.demo_int: Optional[List[int]] = None
-        self.beta_int: Optional[List[int]] = None
-        self.proto_int: Optional[List[int]] = None
+        self.score: Optional[Score] = None
 
     def __repr__(self):
         return str(self.__dict__)
 
-    def set_revision(self, revision: str):
+    def set_revision(self, revision: str) -> None:
         self.revision = revision
 
-    def set_version(self, version: str):
+    def set_version(self, version: str) -> None:
         self.version = version
 
-    def set_sample(self, sample: str):
+    def set_sample(self, sample: str) -> None:
         self.sample = sample
 
-    def set_demo(self, demo: str):
+    def set_demo(self, demo: str) -> None:
         self.demo = demo
 
-    def set_beta(self, beta: str):
+    def set_beta(self, beta: str) -> None:
         self.beta = beta
 
-    def set_proto(self, proto: str):
+    def set_proto(self, proto: str) -> None:
         self.proto = proto
 
 
@@ -250,16 +267,16 @@ def parse_games(
             continue
         if filter_proto and proto_match:
             continue
-        is_parent = game.cloneof is None
-        is_bad = bad_regex.search(game.name) is not None
+        is_parent = not game.cloneof
+        is_bad = bool(bad_regex.search(game.name))
         beta = parse_prerelease(beta_match)
         demo = parse_prerelease(demo_match)
         sample = parse_prerelease(sample_match)
         proto = parse_prerelease(proto_match)
-        is_prerelease = beta_match is not None \
-            or demo_match is not None \
-            or sample_match is not None \
-            or proto_match is not None
+        is_prerelease = bool(beta_match
+                             or demo_match
+                             or sample_match
+                             or proto_match)
         revision = parse_revision(game.name)
         version = parse_version(game.name)
         region_data = parse_region_data(game.name)
@@ -293,7 +310,7 @@ def parse_games(
     return games
 
 
-def get_index(ls: List, item: Any, default: int) -> int:
+def get_index(ls: List[Any], item: Any, default: int) -> int:
     try:
         if ls:
             return ls.index(item)
@@ -302,14 +319,14 @@ def get_index(ls: List, item: Any, default: int) -> int:
         return default
 
 
-def replace_extension(extension, file_name):
+def replace_extension(extension: str, file_name: str) -> str:
     try:
         return file_name[:file_name.rindex(os.extsep)] + os.extsep + extension
     except ValueError:
         return file_name + os.extsep + extension
 
 
-def check_blacklist(name: str, blacklist: Optional[List[Pattern]]) -> bool:
+def check_blacklist(name: str, blacklist: List[Pattern]) -> bool:
     if blacklist:
         for pattern in blacklist:
             if pattern.search(name):
@@ -365,14 +382,15 @@ def main(argv: List[str]):
             'prefer-parents',
             'prefer-prereleases',
             'all-regions-with-lang',
-            'debug'
+            'debug',
+            'move'
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
         print_help()
         sys.exit(2)
 
-    dat_file = None
+    dat_file = ""
     filter_bios = False
     filter_program = False
     filter_unlicensed = False
@@ -386,18 +404,20 @@ def main(argv: List[str]):
     version_asc = False
     verbose = False
     input_order = False
-    selected_regions = None
-    file_extension = None
-    input_dir = None
-    blacklist = None
+    selected_regions: List[str] = []
+    file_extension = ""
+    input_dir = ""
+    blacklist_str: List[str] = []
+    blacklist: List[Pattern] = []
     ignore_case = False
-    output_dir = None
-    selected_languages = None
+    output_dir = ""
+    selected_languages: List[str] = []
     prioritize_languages = False
     prefer_parents = False
     prefer_prereleases = False
     language_weight = 3
     debug = False
+    move = False
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
@@ -446,7 +466,7 @@ def main(argv: List[str]):
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.extsep)
         if opt in ('-b', '--blacklist'):
-            blacklist = arg.split(',')
+            blacklist_str = arg.split(',')
         if opt in ('-i', '--input-dir'):
             input_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(input_dir):
@@ -465,6 +485,7 @@ def main(argv: List[str]):
         debug |= opt == '--debug'
         if debug:
             verbose = True
+        move |= opt == '--move'
     if not dat_file:
         print('DAT file is required', file=sys.stderr)
         print_help()
@@ -497,7 +518,7 @@ def main(argv: List[str]):
         print('output-dir requires an input-dir', file=sys.stderr)
         print_help()
         sys.exit(2)
-    if ignore_case and not blacklist:
+    if ignore_case and not blacklist_str:
         print(
             "ignore-case only works if there's a blacklist too",
             file=sys.stderr)
@@ -509,12 +530,12 @@ def main(argv: List[str]):
             file=sys.stderr)
         print_help()
         sys.exit(2)
-    if blacklist:
+    if blacklist_str:
         if ignore_case:
             blacklist = [re.compile(re.escape(x), re.IGNORECASE)
-                         for x in blacklist]
+                         for x in blacklist_str]
         else:
-            blacklist = [re.compile(re.escape(x)) for x in blacklist]
+            blacklist = [re.compile(re.escape(x)) for x in blacklist_str]
 
     parsed_games = parse_games(
         dat_file,
@@ -526,6 +547,36 @@ def main(argv: List[str]):
         filter_demo,
         filter_sample)
 
+    if verbose:
+        region_text = 'Best region match'
+        lang_text = 'Best language match'
+        parents_text = 'Parent ROMs'
+        index_text = 'Input order'
+        print('Sorting with the following criteria:\n'
+              '\t1. Good dumps\n'
+              '\t2. %s\n'
+              '\t3. Non-blacklisted items\n'
+              '\t4. %s\n'
+              '\t5. %s\n'
+              '\t6. %s\n'
+              '\t7. %s\n'
+              '\t8. %s revision\n'
+              '\t9. %s version\n'
+              '\t10. Latest sample\n'
+              '\t11. Latest demo\n'
+              '\t12. Latest beta\n'
+              '\t13. Latest prototype\n'
+              '\t14. Most languages supported\n'
+              '\t15. Shortest ROM name' %
+              ('Prelease ROMs' if prefer_prereleases else 'Released ROMs',
+               lang_text if prioritize_languages else region_text,
+               region_text if prioritize_languages else lang_text,
+               parents_text if prefer_parents else parents_text + ' (Ignored)',
+               index_text if input_order else index_text + ' (Ignored)',
+               'Earliest' if revision_asc else 'Latest',
+               'Earliest' if version_asc else 'Latest'),
+              file=sys.stderr)
+
     for key in parsed_games:
         games = parsed_games[key]
         pad_values(games, lambda g: g.version, lambda g, s: g.set_version(s))
@@ -534,33 +585,26 @@ def main(argv: List[str]):
         pad_values(games, lambda g: g.demo, lambda g, s: g.set_demo(s))
         pad_values(games, lambda g: g.beta, lambda g, s: g.set_beta(s))
         pad_values(games, lambda g: g.proto, lambda g, s: g.set_proto(s))
-        for i in games:
-            i.region_score = get_index(selected_regions, i.region, UNSELECTED)
-            i.languages_score = sum([
-                (get_index(selected_languages, lang, -1) + 1) * -language_weight
-                for lang in i.languages])
-            i.revision_int = to_int_list(
-                i.revision,
-                1 if revision_asc else -1)
-            i.version_int = to_int_list(i.version, 1 if version_asc else -1)
-            i.sample_int = to_int_list(i.sample, -1)
-            i.demo_int = to_int_list(i.demo, -1)
-            i.beta_int = to_int_list(i.beta, -1)
-            i.proto_int = to_int_list(i.proto, -1)
+        set_scores(games,
+                   selected_regions,
+                   selected_languages,
+                   language_weight,
+                   revision_asc,
+                   version_asc)
         games.sort(key=lambda g: (
             g.is_bad,
             prefer_prereleases ^ g.is_prerelease,
             check_blacklist(g.rom, blacklist),
-            g.languages_score if prioritize_languages else g.region_score,
-            g.region_score if prioritize_languages else g.languages_score,
+            g.score.languages if prioritize_languages else g.score.region,
+            g.score.region if prioritize_languages else g.score.languages,
             prefer_parents and not g.is_parent,
             g.input_index if input_order else 0,
-            g.revision_int,
-            g.version_int,
-            g.sample_int,
-            g.demo_int,
-            g.beta_int,
-            g.proto_int,
+            g.score.revision,
+            g.score.version,
+            g.score.sample,
+            g.score.demo,
+            g.score.beta,
+            g.score.proto,
             not g.is_parent,
             -len(g.languages),
             len(g.rom)))
@@ -571,8 +615,8 @@ def main(argv: List[str]):
 
     for game, entries in parsed_games.items():
         if not all_regions:
-            entries = [x for x in entries if x.region_score != UNSELECTED
-                       or (all_regions_with_lang and x.languages_score < 0)]
+            entries = [x for x in entries if x.score.region != UNSELECTED
+                       or (all_regions_with_lang and x.score.languages < 0)]
         if debug:
             print(
                 'Handling candidates for game [%s]: %s' % (game, entries),
@@ -587,8 +631,7 @@ def main(argv: List[str]):
                 full_path = os.path.join(input_dir, file_name)
                 if os.path.isfile(full_path):
                     if output_dir:
-                        print('Copying [%s] to [%s]' % (file_name, output_dir))
-                        shutil.copy2(full_path, output_dir)
+                        transfer_file(full_path, output_dir, move)
                     else:
                         print(file_name)
                     break
@@ -610,6 +653,50 @@ def main(argv: List[str]):
             else:
                 print(file_name)
                 break
+
+
+def set_scores(
+        games: List[GameEntry],
+        selected_regions: List[str],
+        selected_languages: List[str],
+        language_weight: int,
+        revision_asc: bool,
+        version_asc: bool) -> None:
+    for game in games:
+        region_score = get_index(selected_regions, game.region, UNSELECTED)
+        languages_score = sum([
+            (get_index(selected_languages, lang, -1) + 1) * -language_weight
+            for lang in game.languages])
+        revision_int = to_int_list(
+            game.revision,
+            1 if revision_asc else -1)
+        version_int = to_int_list(game.version, 1 if version_asc else -1)
+        sample_int = to_int_list(game.sample, -1)
+        demo_int = to_int_list(game.demo, -1)
+        beta_int = to_int_list(game.beta, -1)
+        proto_int = to_int_list(game.proto, -1)
+        game.score = Score(
+            region_score,
+            languages_score,
+            revision_int,
+            version_int,
+            sample_int,
+            demo_int,
+            beta_int,
+            proto_int)
+
+
+def transfer_file(
+        full_path: str,
+        output_dir: str,
+        move: bool) -> None:
+    file_name = os.path.basename(full_path)
+    if move:
+        print('Moving [%s] to [%s]' % (file_name, output_dir))
+        shutil.move(full_path, output_dir)
+    else:
+        print('Copying [%s] to [%s]' % (file_name, output_dir))
+        shutil.copy2(full_path, output_dir)
 
 
 def print_help():
@@ -644,6 +731,10 @@ def print_help():
         'has at least one selected language',
         file=sys.stderr)
     print(
+        '\t--prioritize-languages\tIf set, ROMs matching languages will be '
+        'prioritized over ROMs matching regions',
+        file=sys.stderr)
+    print(
         '\t--early-revisions\tROMs of earlier revisions will be prioritized',
         file=sys.stderr)
     print(
@@ -672,15 +763,19 @@ def print_help():
         '\t--ignore-case\tIf set, the blacklist will be case-insensitive ',
         file=sys.stderr)
     print(
-        '\t-v,--verbose\tPrints more messages (useful when troubleshooting)',
-        file=sys.stderr)
-    print(
         '\t-i,--input-dir=PATH\tProvides an input directory '
         '(i.e.: where your ROMs are)',
         file=sys.stderr)
     print(
-        '\t-o,--output-dir=PATH\tIf provided, ROMs will be copied to an an '
+        '\t-o,--output-dir=PATH\tIf provided, ROMs will be copied to an '
         'output directory',
+        file=sys.stderr)
+    print(
+        '\t--move\tIf set, ROMs will be moved, intead of copied, to the '
+        'output directory',
+        file=sys.stderr)
+    print(
+        '\t-v,--verbose\tPrints more messages (useful when troubleshooting)',
         file=sys.stderr)
     print(
         '\t--debug\tPrints even more messages (useful when troubleshooting)',
