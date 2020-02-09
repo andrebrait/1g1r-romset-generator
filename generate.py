@@ -567,7 +567,7 @@ def main(argv: List[str]):
               '\t12. Latest beta\n'
               '\t13. Latest prototype\n'
               '\t14. Most languages supported\n'
-              '\t15. Shortest ROM name' %
+              '\t15. Parent ROMs' %
               ('Prelease ROMs' if prefer_prereleases else 'Released ROMs',
                lang_text if prioritize_languages else region_text,
                region_text if prioritize_languages else lang_text,
@@ -605,9 +605,8 @@ def main(argv: List[str]):
             g.score.demo,
             g.score.beta,
             g.score.proto,
-            not g.is_parent,
             -len(g.languages),
-            len(g.rom)))
+            not g.is_parent))
         if verbose:
             print(
                 'Candidate order for [%s]: %s' % (key, [g.rom for g in games]),
