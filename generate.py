@@ -700,7 +700,7 @@ def transfer_file(
 
 def print_help():
     print(
-        'Usage: python3 generate.py [options] -d input_file.dat',
+        'Usage: python3 %s [options] -d input_file.dat' % sys.argv[0],
         file=sys.stderr)
     print('Options:', file=sys.stderr)
     print('\t-h,--help\tPrints this usage message', file=sys.stderr)
