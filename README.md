@@ -72,4 +72,4 @@ Sorting happens with the following criteria:
 12. Latest beta
 13. Latest prototype
 14. Most languages supported
-15. Shortest ROM name
+15. Parent ROMs
