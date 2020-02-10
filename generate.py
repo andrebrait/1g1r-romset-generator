@@ -703,85 +703,127 @@ def print_help():
         'Usage: python3 %s [options] -d input_file.dat' % sys.argv[0],
         file=sys.stderr)
     print('Options:', file=sys.stderr)
-    print('\t-h,--help\tPrints this usage message', file=sys.stderr)
     print(
-        '\t-r,--regions=REGIONS\tA list of regions separated by commas. '
-        'Ex.: -r USA,EUR,JPN', file=sys.stderr)
-    print(
-        '\t-l,--languages=LANGUAGES\tA list of languages separated by commas. '
-        'Ex.: -l en,es,ru', file=sys.stderr)
-    print('\t-d,--dat=DAT_FILE\tThe DAT file to be used', file=sys.stderr)
-    print('\t--no-bios\tFilter out BIOSes', file=sys.stderr)
-    print(
-        '\t--no-program\tFilter out Programs and Test Programs',
-        file=sys.stderr)
-    print('\t--no-proto\tFilter out prototype ROMs', file=sys.stderr)
-    print('\t--no-unlicensed\tFilter out unlicensed ROMs', file=sys.stderr)
-    print('\t--no-beta\tFilter out beta ROMs', file=sys.stderr)
-    print('\t--no-demo\tFilter out demo ROMs', file=sys.stderr)
-    print('\t--no-sample\tFilter out sample ROMs', file=sys.stderr)
-    print('\t--no-all\tApply all filters above', file=sys.stderr)
-    print(
-        '\t--all-regions\tIncludes files of unselected regions, '
-        'if a selected one if not available',
+        '\t-h,--help\t\t'
+        'Prints this usage message',
         file=sys.stderr)
     print(
-        '\t--all-regions-with-lang\tSame as --all-regions, but only if a ROM '
-        'has at least one selected language',
+        '\t-r,--regions=REGIONS\t'
+        'A list of regions separated by commas. Ex.: -r USA,EUR,JPN',
         file=sys.stderr)
     print(
-        '\t-w,--language-weight\tThe degree of priority the first selected '
-        'languages receive over the latter ones. Default: 3',
+        '\t-l,--languages=LANGS\t'
+        'An optional list of languages separated by commas. Ex.: -l en,es,ru',
         file=sys.stderr)
     print(
-        '\t--prioritize-languages\tIf set, ROMs matching languages will be '
-        'prioritized over ROMs matching regions',
+        '\t-d,--dat=DAT_FILE\t'
+        'The DAT file to be used',
         file=sys.stderr)
     print(
-        '\t--early-revisions\tROMs of earlier revisions will be prioritized',
+        '\t--no-bios\t\t'
+        'Filter out BIOSes',
         file=sys.stderr)
     print(
-        '\t--early-versions\tROMs of earlier versions will be prioritized',
+        '\t--no-program\t\t'
+        'Filter out Programs and Test Programs',
         file=sys.stderr)
     print(
-        '\t--input-order\tROMs will be prioritized by the order they '
+        '\t--no-proto\t\t'
+        'Filter out prototype ROMs',
+        file=sys.stderr)
+    print(
+        '\t--no-unlicensed\t\t'
+        'Filter out unlicensed ROMs',
+        file=sys.stderr)
+    print(
+        '\t--no-beta\t\t'
+        'Filter out beta ROMs',
+        file=sys.stderr)
+    print(
+        '\t--no-demo\t\t'
+        'Filter out demo ROMs',
+        file=sys.stderr)
+    print(
+        '\t--no-sample\t\t'
+        'Filter out sample ROMs',
+        file=sys.stderr)
+    print(
+        '\t--no-all\t\t'
+        'Apply all filters above',
+        file=sys.stderr)
+    print(
+        '\t--all-regions\t\t'
+        'Includes files of unselected regions, if a selected one if not '
+        'available',
+        file=sys.stderr)
+    print(
+        '\t--all-regions-with-lang\t'
+        'Same as --all-regions, but only if a ROM has at least one selected '
+        'language',
+        file=sys.stderr)
+    print(
+        '\t-w,--language-weight\t'
+        'The degree of priority the first selected languages receive over the '
+        'latter ones. Default: 3',
+        file=sys.stderr)
+    print(
+        '\t--prioritize-languages\t'
+        'If set, ROMs matching more languages will be prioritized over ROMs '
+        'matching regions',
+        file=sys.stderr)
+    print(
+        '\t--early-revisions\t'
+        'ROMs of earlier revisions will be prioritized',
+        file=sys.stderr)
+    print(
+        '\t--early-versions\t'
+        'ROMs of earlier versions will be prioritized',
+        file=sys.stderr)
+    print(
+        '\t--input-order\t\t'
+        'ROMs will be prioritized by the order they '
         'appear in the DAT file',
         file=sys.stderr)
     print(
-        '\t--prefer-parents\tParent ROMs will be prioritized over clones',
+        '\t--prefer-parents\t'
+        'Parent ROMs will be prioritized over clones',
         file=sys.stderr)
     print(
-        '\t--prefer-prereleases\tPrerelease (Beta, Proto, etc.) ROMs will be '
-        'prioritized',
+        '\t--prefer-prereleases\t'
+        'Prerelease (Beta, Proto, etc.) ROMs will be prioritized',
         file=sys.stderr)
     print(
-        '\t-b,--blacklist=WORDS\tROMs containing these words will be avoided. '
+        '\t-b,--blacklist=WORDS\t'
+        'ROMs containing these words will be avoided. '
         'Ex.: -b "Virtual Console,GameCube"',
         file=sys.stderr)
     print(
-        '\t--ignore-case\tIf set, the blacklist will be case-insensitive ',
+        '\t--ignore-case\t\t'
+        'If set, the blacklist will be case-insensitive ',
         file=sys.stderr)
     print(
-        '\t-i,--input-dir=PATH\tProvides an input directory '
-        '(i.e.: where your ROMs are)',
+        '\t-i,--input-dir=PATH\t'
+        'Provides an input directory (i.e.: where your ROMs are)',
         file=sys.stderr)
     print(
-        '\t-e,--extension=EXTENSION\tROM names will use this extension. '
-        'Ex.: -e zip',
+        '\t-e,--extension=EXT\t'
+        'ROM names will use this extension. Ex.: -e zip',
         file=sys.stderr)
     print(
-        '\t-o,--output-dir=PATH\tIf provided, ROMs will be copied to an '
-        'output directory',
+        '\t-o,--output-dir=PATH\t'
+        'If provided, ROMs will be copied to an output directory',
         file=sys.stderr)
     print(
-        '\t--move\tIf set, ROMs will be moved, intead of copied, to the '
-        'output directory',
+        '\t--move\t\t\t'
+        'If set, ROMs will be moved, intead of copied, to the output directory',
         file=sys.stderr)
     print(
-        '\t-v,--verbose\tPrints more messages (useful when troubleshooting)',
+        '\t-v,--verbose\t\t'
+        'Prints more messages (useful when troubleshooting)',
         file=sys.stderr)
     print(
-        '\t--debug\tPrints even more messages (useful when troubleshooting)',
+        '\t--debug\t\t\t'
+        'Prints even more messages (useful when troubleshooting)',
         file=sys.stderr)
 
 
