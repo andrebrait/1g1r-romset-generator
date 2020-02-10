@@ -730,6 +730,10 @@ def print_help():
         'has at least one selected language',
         file=sys.stderr)
     print(
+        '\t-w,--language-weight\tThe degree of priority the first selected '
+        'languages receive over the latter ones. Default: 3',
+        file=sys.stderr)
+    print(
         '\t--prioritize-languages\tIf set, ROMs matching languages will be '
         'prioritized over ROMs matching regions',
         file=sys.stderr)
@@ -751,10 +755,6 @@ def print_help():
         'prioritized',
         file=sys.stderr)
     print(
-        '\t-e,--extension=EXTENSION\tROM names will use this extension. '
-        'Ex.: -e zip',
-        file=sys.stderr)
-    print(
         '\t-b,--blacklist=WORDS\tROMs containing these words will be avoided. '
         'Ex.: -b "Virtual Console,GameCube"',
         file=sys.stderr)
@@ -764,6 +764,10 @@ def print_help():
     print(
         '\t-i,--input-dir=PATH\tProvides an input directory '
         '(i.e.: where your ROMs are)',
+        file=sys.stderr)
+    print(
+        '\t-e,--extension=EXTENSION\tROM names will use this extension. '
+        'Ex.: -e zip',
         file=sys.stderr)
     print(
         '\t-o,--output-dir=PATH\tIf provided, ROMs will be copied to an '

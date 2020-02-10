@@ -28,16 +28,17 @@ Options:
         --no-all        Apply all filters above
         --all-regions   Includes files of unselected regions, if a selected one if not available
         --all-regions-with-lang Same as --all-regions, but only if a ROM has at least one selected language
+        -w,--language-weight    The degree of priority the first selected languages receive over the latter ones. Default: 3
         --prioritize-languages  If set, ROMs matching languages will be prioritized over ROMs matching regions
         --early-revisions       ROMs of earlier revisions will be prioritized
         --early-versions        ROMs of earlier versions will be prioritized
         --input-order   ROMs will be prioritized by the order they appear in the DAT file
         --prefer-parents        Parent ROMs will be prioritized over clones
         --prefer-prereleases    Prerelease (Beta, Proto, etc.) ROMs will be prioritized
-        -e,--extension=EXTENSION        ROM names will use this extension. Ex.: -e zip
         -b,--blacklist=WORDS    ROMs containing these words will be avoided. Ex.: -b "Virtual Console,GameCube"
         --ignore-case   If set, the blacklist will be case-insensitive 
         -i,--input-dir=PATH     Provides an input directory (i.e.: where your ROMs are)
+        -e,--extension=EXTENSION        ROM names will use this extension. Ex.: -e zip
         -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
         --move  If set, ROMs will be moved, intead of copied, to the output directory
         -v,--verbose    Prints more messages (useful when troubleshooting)
