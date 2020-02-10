@@ -5,9 +5,6 @@ A small Python utility that uses No-Intro DATs to generate 1G1R sets
 #### Requirements
 
 * Python 3 (tested with versions 3.6+, but probably works on earlier versions)
-* The `six` Python compatibility library
-  * `apt install python3-six` will do, in most Debian-based Linux distributions
-  * `pip3 install six` is an alternative
 
 #### Usage
 

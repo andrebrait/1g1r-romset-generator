@@ -25,7 +25,7 @@ import os
 import re as re_
 import sys
 
-from six.moves import zip_longest
+from itertools import zip_longest
 
 try:
     from lxml import etree as etree_
@@ -35,10 +35,6 @@ except ImportError:
 
 Validate_simpletypes_ = True
 SaveElementTreeNode = True
-if sys.version_info.major == 2:
-    BaseStrType_ = basestring
-else:
-    BaseStrType_ = str
 
 
 def parsexml_(infile, parser=None, **kwargs):
@@ -592,20 +588,11 @@ except ImportError as exp:
             return dict(((v, k) for k, v in mapping.items()))
         @staticmethod
         def gds_encode(instring):
-            if sys.version_info.major == 2:
-                if ExternalEncoding:
-                    encoding = ExternalEncoding
-                else:
-                    encoding = 'utf-8'
-                return instring.encode(encoding)
-            else:
-                return instring
+            return instring
         @staticmethod
         def convert_unicode(instring):
             if isinstance(instring, str):
                 result = quote_xml(instring)
-            elif sys.version_info.major == 2 and isinstance(instring, unicode):
-                result = quote_xml(instring).encode('utf8')
             else:
                 result = GeneratedsSuper.gds_encode(str(instring))
             return result
@@ -696,7 +683,7 @@ def quote_xml(inStr):
     "Escape markup chars, but do not modify CDATA sections."
     if not inStr:
         return ''
-    s1 = (isinstance(inStr, BaseStrType_) and inStr or '%s' % inStr)
+    s1 = (isinstance(inStr, str) and inStr or '%s' % inStr)
     s2 = ''
     pos = 0
     matchobjects = CDATA_pattern_.finditer(s1)
@@ -718,7 +705,7 @@ def quote_xml_aux(inStr):
 
 
 def quote_attrib(inStr):
-    s1 = (isinstance(inStr, BaseStrType_) and inStr or '%s' % inStr)
+    s1 = (isinstance(inStr, str) and inStr or '%s' % inStr)
     s1 = s1.replace('&', '&amp;')
     s1 = s1.replace('<', '&lt;')
     s1 = s1.replace('>', '&gt;')
