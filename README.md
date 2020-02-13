@@ -5,6 +5,7 @@ A small Python utility that uses No-Intro DATs to generate 1G1R sets
 #### Requirements
 
 * Python 3 (tested with versions 3.6+, but probably works on earlier versions)
+* That's it! This project has no external dependencies! :sunglasses:
 
 #### Usage
 
