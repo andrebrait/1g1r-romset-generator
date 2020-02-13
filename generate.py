@@ -762,7 +762,7 @@ def print_help():
         'language',
         file=sys.stderr)
     print(
-        '\t-w,--language-weight\t'
+        '\t-w,--language-weight=N\t'
         'The degree of priority the first selected languages receive over the '
         'latter ones. Default: 3',
         file=sys.stderr)
