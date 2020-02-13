@@ -26,7 +26,7 @@ Options:
         --no-all                Apply all filters above
         --all-regions           Includes files of unselected regions, if a selected one if not available
         --all-regions-with-lang Same as --all-regions, but only if a ROM has at least one selected language
-        -w,--language-weight    The degree of priority the first selected languages receive over the latter ones. Default: 3
+        -w,--language-weight=N  The degree of priority the first selected languages receive over the latter ones. Default: 3
         --prioritize-languages  If set, ROMs matching more languages will be prioritized over ROMs matching regions
         --early-revisions       ROMs of earlier revisions will be prioritized
         --early-versions        ROMs of earlier versions will be prioritized
