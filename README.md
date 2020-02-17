@@ -1,6 +1,6 @@
 ### 1G1R ROM set generator
 
-A small Python utility that uses No-Intro DATs to generate 1G1R sets
+A small utility written in Python that uses No-Intro DATs to generate 1G1R ROM sets
 
 #### Requirements
 
