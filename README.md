@@ -43,12 +43,21 @@ Options:
         --debug                 Prints even more messages (useful when troubleshooting)
 ```
 
-#### Goals
+#### Motivation
 
-* Propose a new scoring system to achieve a better ROM selection for the 1G1R sets, 
-relative to the scoring system used in popular ROM organization tools
-* Implement the scoring system in a small, cross-platform tool, able to work with a 
-pre-existing ROM collection without requiring a full-fledged ROM organization tool
+1. Parent/Clone XML DATs (the ones used to generate 1G1R ROM sets) sometimes lack data such as the *Region* or *Languages* of a game, even though the of data is often present in a ROM's name (thanks to No-Intro's naming convention).
+2. Parent/Clone XML DATs often conflate retail versions of a game and its many _Prototype_, _Beta_, _Demo_ and _Sample_ versions in the same chain of parent and clone ROMs of a given game.
+3. ClrMamePro, while an awesome tool, has a not-so-great way of picking ROMs based on the data provided by these DAT files:
+    1. Its scoring system is capable of electing **one** best candidate for a ROM, and if you happen to not have that one candidate in your set, the game is not included in your resulting 1G1R set at all, even though you have alternatives to it.
+    2. It has no concept of _pre-release_ and _retail_ ROMs.
+    3. It has no concept of _revision_ or _versions_ of a game.
+4. ClrMamePro is not the most cross-platform-friendly tool out there, and is often too complex for someone who just wants to generate a 1G1R ROM set from an existing ROM set.
+5. Automated batch scripts are easy and practical, but inflexible. What if I prefer European ROMs over North-American ones? What if I prefer ROMs in Spanish? 
+
+As fixing all these shortcomings would involve a lot of effort, I decided to:
+
+1. Propose a new scoring system to achieve a better ROM selection for the 1G1R sets, relative to the scoring system used in popular ROM organization tools such as ClrMamePro.
+2. Implement the scoring system in a small, cross-platform tool, able to work with a pre-existing ROM collection without requiring a full-fledged ROM organization tool.
 
 #### Scoring strategy
 
