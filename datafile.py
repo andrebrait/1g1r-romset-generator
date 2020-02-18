@@ -66,6 +66,12 @@ def parsexmlstring_(instring, parser=None, **kwargs):
     element = etree_.fromstring(instring, parser=parser, **kwargs)
     return element
 
+def get_(node, attribute, default=None):
+    try:
+        return node.__dict__[attribute]
+    except AttributeError:
+        return default
+
 #
 # Namespace prefix definition table (and other attributes, too)
 #
@@ -1045,7 +1051,7 @@ class datafile(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -1270,7 +1276,7 @@ class header(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -1284,61 +1290,61 @@ class header(GeneratedsSuper):
             value_ = self.gds_parse_string(value_, node, 'name')
             value_ = self.gds_validate_string(value_, node, 'name')
             self.name = value_
-            self.name_nsprefix_ = child_.prefix
+            self.name_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'description':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'description')
             value_ = self.gds_validate_string(value_, node, 'description')
             self.description = value_
-            self.description_nsprefix_ = child_.prefix
+            self.description_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'category':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'category')
             value_ = self.gds_validate_string(value_, node, 'category')
             self.category = value_
-            self.category_nsprefix_ = child_.prefix
+            self.category_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'version':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'version')
             value_ = self.gds_validate_string(value_, node, 'version')
             self.version = value_
-            self.version_nsprefix_ = child_.prefix
+            self.version_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'date':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'date')
             value_ = self.gds_validate_string(value_, node, 'date')
             self.date = value_
-            self.date_nsprefix_ = child_.prefix
+            self.date_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'author':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'author')
             value_ = self.gds_validate_string(value_, node, 'author')
             self.author = value_
-            self.author_nsprefix_ = child_.prefix
+            self.author_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'email':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'email')
             value_ = self.gds_validate_string(value_, node, 'email')
             self.email = value_
-            self.email_nsprefix_ = child_.prefix
+            self.email_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'homepage':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'homepage')
             value_ = self.gds_validate_string(value_, node, 'homepage')
             self.homepage = value_
-            self.homepage_nsprefix_ = child_.prefix
+            self.homepage_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'url':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'url')
             value_ = self.gds_validate_string(value_, node, 'url')
             self.url = value_
-            self.url_nsprefix_ = child_.prefix
+            self.url_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'comment':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'comment')
             value_ = self.gds_validate_string(value_, node, 'comment')
             self.comment = value_
-            self.comment_nsprefix_ = child_.prefix
+            self.comment_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'clrmamepro':
             obj_ = clrmamepro.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
@@ -1450,7 +1456,7 @@ class clrmamepro(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -1603,7 +1609,7 @@ class romcenter(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -1947,7 +1953,7 @@ class game(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -1992,25 +1998,25 @@ class game(GeneratedsSuper):
             value_ = self.gds_parse_string(value_, node, 'comment')
             value_ = self.gds_validate_string(value_, node, 'comment')
             self.comment.append(value_)
-            self.comment_nsprefix_ = child_.prefix
+            self.comment_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'description':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'description')
             value_ = self.gds_validate_string(value_, node, 'description')
             self.description = value_
-            self.description_nsprefix_ = child_.prefix
+            self.description_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'year':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'year')
             value_ = self.gds_validate_string(value_, node, 'year')
             self.year = value_
-            self.year_nsprefix_ = child_.prefix
+            self.year_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'manufacturer':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'manufacturer')
             value_ = self.gds_validate_string(value_, node, 'manufacturer')
             self.manufacturer = value_
-            self.manufacturer_nsprefix_ = child_.prefix
+            self.manufacturer_nsprefix_ = get_(child_, 'prefix')
         elif nodeName_ == 'release':
             obj_ = release.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
@@ -2151,7 +2157,7 @@ class release(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -2272,7 +2278,7 @@ class biosset(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -2430,7 +2436,7 @@ class rom(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -2581,7 +2587,7 @@ class disk(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -2684,7 +2690,7 @@ class sample(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -2771,7 +2777,7 @@ class archive(GeneratedsSuper):
         if SaveElementTreeNode:
             self.gds_elementtree_node_ = node
         already_processed = set()
-        self.ns_prefix_ = node.prefix
+        self.ns_prefix_ = get_(node, 'prefix')
         self.buildAttributes(node, node.attrib, already_processed)
         for child in node:
             nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
@@ -2816,7 +2822,7 @@ def get_required_ns_prefix_defs(rootNode):
     nsmap = {
         prefix: uri
         for node in rootNode.iter()
-        for (prefix, uri) in node.nsmap.items()
+        for (prefix, uri) in get_(node, 'nsmap', {}).items()
         if prefix is not None
     }
     namespacedefs = ' '.join([
