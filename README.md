@@ -9,6 +9,8 @@ A small utility written in Python that uses No-Intro DATs to generate 1G1R ROM s
 
 #### Usage
 
+For a comprehensive guide on how to use this tool, check out the [wiki page](https://github.com/andrebrait/1g1r-romset-generator/wiki) for this repository.
+
 ```
 Usage: python3 generate.py [options] -d input_file.dat
 Options:
