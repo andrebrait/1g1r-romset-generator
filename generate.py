@@ -135,6 +135,7 @@ class GameEntry:
 sections_regex = re.compile(r'\(([^()]+)\)')
 bios_regex = re.compile(re.escape('[BIOS]'), re.IGNORECASE)
 program_regex = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
+enhancement_chip_regex = re.compile(r'\(Enhancement\s*Chip\)', re.IGNORECASE)
 unl_regex = re.compile(re.escape('(Unl)'), re.IGNORECASE)
 beta_regex = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 proto_regex = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
@@ -240,6 +241,7 @@ def parse_games(
         file: str,
         filter_bios: bool,
         filter_program: bool,
+        filter_enhancement_chip: bool,
         filter_unlicensed: bool,
         filter_proto: bool,
         filter_beta: bool,
@@ -258,6 +260,8 @@ def parse_games(
         if filter_unlicensed and unl_regex.search(game.name):
             continue
         if filter_program and program_regex.search(game.name):
+            continue
+        if filter_enhancement_chip and enhancement_chip_regex.search(game.name):
             continue
         if filter_beta and beta_match:
             continue
@@ -360,12 +364,13 @@ def main(argv: List[str]):
             'regions=',
             'no-bios',
             'no-program',
-            'no-unlicensed',
+            'no-enhancement-chip',
             'no-beta',
             'no-demo',
             'no-sample',
             'no-proto',
             'no-all',
+            'no-unlicensed',
             'all-regions',
             'early-revisions',
             'early-versions',
@@ -393,6 +398,7 @@ def main(argv: List[str]):
     dat_file = ""
     filter_bios = False
     filter_program = False
+    filter_enhancement_chip = False
     filter_unlicensed = False
     filter_proto = False
     filter_beta = False
@@ -441,13 +447,14 @@ def main(argv: List[str]):
                 print_help()
                 sys.exit(2)
         prioritize_languages |= opt == '--prioritize-languages'
-        filter_bios |= opt == '--no-bios' or opt == '--no-all'
-        filter_program |= opt == '--no-program' or opt == '--no-all'
-        filter_unlicensed |= opt == '--no-unlicensed' or opt == '--no-all'
-        filter_proto |= opt == '--no-proto' or opt == '--no-all'
-        filter_beta |= opt == '--no-beta' or opt == '--no-all'
-        filter_demo |= opt == '--no-demo' or opt == '--no-all'
-        filter_sample |= opt == '--no-sample' or opt == '--no-all'
+        filter_bios |= opt in ('--no-bios', '--no-all')
+        filter_program |= opt in ('--no-program', '--no-all')
+        filter_enhancement_chip |= opt in ('--no-enhancement-chip', '--no-all')
+        filter_proto |= opt in ('--no-proto', '--no-all')
+        filter_beta |= opt in ('--no-beta', '--no-all')
+        filter_demo |= opt in ('--no-demo', '--no-all')
+        filter_sample |= opt in ('--no-sample', '--no-all')
+        filter_unlicensed |= opt == '--no-unlicensed'
         all_regions |= opt == '--all-regions'
         all_regions_with_lang |= opt == '--all-regions-with-lang'
         revision_asc |= opt == '--early-revisions'
@@ -541,6 +548,7 @@ def main(argv: List[str]):
         dat_file,
         filter_bios,
         filter_program,
+        filter_enhancement_chip,
         filter_unlicensed,
         filter_proto,
         filter_beta,
@@ -552,30 +560,48 @@ def main(argv: List[str]):
         lang_text = 'Best language match'
         parents_text = 'Parent ROMs'
         index_text = 'Input order'
-        print('Sorting with the following criteria:\n'
-              '\t1. Good dumps\n'
-              '\t2. %s\n'
-              '\t3. Non-blacklisted items\n'
-              '\t4. %s\n'
-              '\t5. %s\n'
-              '\t6. %s\n'
-              '\t7. %s\n'
-              '\t8. %s revision\n'
-              '\t9. %s version\n'
-              '\t10. Latest sample\n'
-              '\t11. Latest demo\n'
-              '\t12. Latest beta\n'
-              '\t13. Latest prototype\n'
-              '\t14. Most languages supported\n'
-              '\t15. Parent ROMs' %
-              ('Prelease ROMs' if prefer_prereleases else 'Released ROMs',
-               lang_text if prioritize_languages else region_text,
-               region_text if prioritize_languages else lang_text,
-               parents_text if prefer_parents else parents_text + ' (Ignored)',
-               index_text if input_order else index_text + ' (Ignored)',
-               'Earliest' if revision_asc else 'Latest',
-               'Earliest' if version_asc else 'Latest'),
-              file=sys.stderr)
+        filters = [
+            (filter_bios, 'BIOSes'),
+            (filter_program, 'Programs'),
+            (filter_enhancement_chip, 'Enhancement Chips'),
+            (filter_proto, 'Prototypes'),
+            (filter_beta, 'Betas'),
+            (filter_demo, 'Demos'),
+            (filter_sample, 'Samples'),
+            (filter_unlicensed, 'Unlicensed ROMs')
+        ]
+        enabled_filters = ['\t%d. %s\n' % (i + 1, filters[i][1])
+                           for i in range(0, len(filters)) if filters[i][0]]
+        if enabled_filters:
+            print(
+                'Filtering out:\n'
+                + "".join(enabled_filters),
+                file=sys.stderr)
+        print(
+            'Sorting with the following criteria:\n'
+            '\t1. Good dumps\n'
+            '\t2. %s\n'
+            '\t3. Non-blacklisted items\n'
+            '\t4. %s\n'
+            '\t5. %s\n'
+            '\t6. %s\n'
+            '\t7. %s\n'
+            '\t8. %s revision\n'
+            '\t9. %s version\n'
+            '\t10. Latest sample\n'
+            '\t11. Latest demo\n'
+            '\t12. Latest beta\n'
+            '\t13. Latest prototype\n'
+            '\t14. Most languages supported\n'
+            '\t15. Parent ROMs\n' %
+            ('Prelease ROMs' if prefer_prereleases else 'Released ROMs',
+             lang_text if prioritize_languages else region_text,
+             region_text if prioritize_languages else lang_text,
+             parents_text if prefer_parents else parents_text + ' (Ignored)',
+             index_text if input_order else index_text + ' (Ignored)',
+             'Earliest' if revision_asc else 'Latest',
+             'Earliest' if version_asc else 'Latest'),
+            file=sys.stderr)
 
     for key in parsed_games:
         games = parsed_games[key]
@@ -703,10 +729,7 @@ def print_help():
         'Usage: python3 %s [options] -d input_file.dat' % sys.argv[0],
         file=sys.stderr)
     print('Options:', file=sys.stderr)
-    print(
-        '\t-h,--help\t\t'
-        'Prints this usage message',
-        file=sys.stderr)
+    print('\n# ROM selection and file manipulation:', file=sys.stderr)
     print(
         '\t-r,--regions=REGIONS\t'
         'A list of regions separated by commas. Ex.: -r USA,EUR,JPN',
@@ -720,6 +743,24 @@ def print_help():
         'The DAT file to be used',
         file=sys.stderr)
     print(
+        '\t-i,--input-dir=PATH\t'
+        'Provides an input directory (i.e.: where your ROMs are)',
+        file=sys.stderr)
+    print(
+        '\t-e,--extension=EXT\t'
+        'ROM names will use this extension. Ex.: -e zip',
+        file=sys.stderr)
+    print(
+        '\t-o,--output-dir=PATH\t'
+        'If provided, ROMs will be copied to an output directory',
+        file=sys.stderr)
+    print(
+        '\t--move\t\t\t'
+        'If set, ROMs will be moved, instead of copied, '
+        'to the output directory',
+        file=sys.stderr)
+    print('\n# Filtering:', file=sys.stderr)
+    print(
         '\t--no-bios\t\t'
         'Filter out BIOSes',
         file=sys.stderr)
@@ -728,12 +769,12 @@ def print_help():
         'Filter out Programs and Test Programs',
         file=sys.stderr)
     print(
-        '\t--no-proto\t\t'
-        'Filter out prototype ROMs',
+        '\t--no-enhancement-chip\t'
+        'Filter out Ehancement Chips',
         file=sys.stderr)
     print(
-        '\t--no-unlicensed\t\t'
-        'Filter out unlicensed ROMs',
+        '\t--no-proto\t\t'
+        'Filter out prototype ROMs',
         file=sys.stderr)
     print(
         '\t--no-beta\t\t'
@@ -749,7 +790,11 @@ def print_help():
         file=sys.stderr)
     print(
         '\t--no-all\t\t'
-        'Apply all filters above',
+        'Apply all filters above (WILL STILL ALLOW UNLICENSED ROMs)',
+        file=sys.stderr)
+    print(
+        '\t--no-unlicensed\t\t'
+        'Filter out unlicensed ROMs',
         file=sys.stderr)
     print(
         '\t--all-regions\t\t'
@@ -761,6 +806,7 @@ def print_help():
         'Same as --all-regions, but only if a ROM has at least one selected '
         'language',
         file=sys.stderr)
+    print('\n# Adjustment and customization:', file=sys.stderr)
     print(
         '\t-w,--language-weight=N\t'
         'The degree of priority the first selected languages receive over the '
@@ -794,28 +840,17 @@ def print_help():
         file=sys.stderr)
     print(
         '\t-b,--blacklist=WORDS\t'
-        'ROMs containing these words will be avoided. '
+        'ROMs containing these words will be avoided (but not excluded). '
         'Ex.: -b "Virtual Console,GameCube"',
         file=sys.stderr)
     print(
         '\t--ignore-case\t\t'
         'If set, the blacklist will be case-insensitive ',
         file=sys.stderr)
+    print('\n# Help and debugging:', file=sys.stderr)
     print(
-        '\t-i,--input-dir=PATH\t'
-        'Provides an input directory (i.e.: where your ROMs are)',
-        file=sys.stderr)
-    print(
-        '\t-e,--extension=EXT\t'
-        'ROM names will use this extension. Ex.: -e zip',
-        file=sys.stderr)
-    print(
-        '\t-o,--output-dir=PATH\t'
-        'If provided, ROMs will be copied to an output directory',
-        file=sys.stderr)
-    print(
-        '\t--move\t\t\t'
-        'If set, ROMs will be moved, intead of copied, to the output directory',
+        '\t-h,--help\t\t'
+        'Prints this usage message',
         file=sys.stderr)
     print(
         '\t-v,--verbose\t\t'
