@@ -32,6 +32,7 @@ Options:
         --no-beta               Filter out beta ROMs
         --no-demo               Filter out demo ROMs
         --no-sample             Filter out sample ROMs
+        --no-pirate             Filter out pirate ROMs
         --no-all                Apply all filters above (WILL STILL ALLOW UNLICENSED ROMs)
         --no-unlicensed         Filter out unlicensed ROMs
         --all-regions           Includes files of unselected regions, if a selected one if not available
@@ -45,8 +46,10 @@ Options:
         --input-order           ROMs will be prioritized by the order they appear in the DAT file
         --prefer-parents        Parent ROMs will be prioritized over clones
         --prefer-prereleases    Prerelease (Beta, Proto, etc.) ROMs will be prioritized
-        -b,--blacklist=WORDS    ROMs containing these words will be avoided (but not excluded). Ex.: -b "Virtual Console,GameCube"
-        --ignore-case           If set, the blacklist will be case-insensitive 
+        --avoid=WORDS           ROMs containing these words will be avoided (but not excluded). Ex.: --avoid "Virtual Console,GameCube"
+        --exclude=WORDS         ROMs containing these words will be excluded. Ex.: --exclude "Virtual Console,GameCube"
+        --ignore-case           If set, the avoid and exclude lists will be case-insensitive
+        --regex                 If set, the avoid and exclude lists are used as regular expressions
 
 # Help and debugging:
         -h,--help               Prints this usage message

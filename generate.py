@@ -137,6 +137,7 @@ bios_regex = re.compile(re.escape('[BIOS]'), re.IGNORECASE)
 program_regex = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
 enhancement_chip_regex = re.compile(r'\(Enhancement\s*Chip\)', re.IGNORECASE)
 unl_regex = re.compile(re.escape('(Unl)'), re.IGNORECASE)
+pirate_regex = re.compile(re.escape('(Pirate)'), re.IGNORECASE)
 beta_regex = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 proto_regex = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 sample_regex = re.compile(r'\(Sample(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
@@ -242,11 +243,13 @@ def parse_games(
         filter_bios: bool,
         filter_program: bool,
         filter_enhancement_chip: bool,
+        filter_pirate: bool,
         filter_unlicensed: bool,
         filter_proto: bool,
         filter_beta: bool,
         filter_demo: bool,
-        filter_sample: bool) -> Dict[str, List[GameEntry]]:
+        filter_sample: bool,
+        exclude: List[Pattern]) -> Dict[str, List[GameEntry]]:
     games = {}
     root = datafile.parse(file, silence=True)
     for input_index in range(0, len(root.game)):
@@ -259,6 +262,8 @@ def parse_games(
             continue
         if filter_unlicensed and unl_regex.search(game.name):
             continue
+        if filter_pirate and pirate_regex.search(game.name):
+            continue
         if filter_program and program_regex.search(game.name):
             continue
         if filter_enhancement_chip and enhancement_chip_regex.search(game.name):
@@ -270,6 +275,8 @@ def parse_games(
         if filter_sample and sample_match:
             continue
         if filter_proto and proto_match:
+            continue
+        if check_in_pattern_list(game.name, exclude):
             continue
         is_parent = not game.cloneof
         is_bad = bool(bad_regex.search(game.name))
@@ -330,9 +337,9 @@ def replace_extension(extension: str, file_name: str) -> str:
         return file_name + os.extsep + extension
 
 
-def check_blacklist(name: str, blacklist: List[Pattern]) -> bool:
-    if blacklist:
-        for pattern in blacklist:
+def check_in_pattern_list(name: str, patterns: List[Pattern]) -> bool:
+    if patterns:
+        for pattern in patterns:
             if pattern.search(name):
                 return True
     return False
@@ -358,7 +365,7 @@ def language_value(
 
 def main(argv: List[str]):
     try:
-        opts, args = getopt.getopt(argv, 'hd:r:e:i:b:vo:l:w:', [
+        opts, args = getopt.getopt(argv, 'hd:r:e:i:vo:l:w:', [
             'help',
             'dat=',
             'regions=',
@@ -369,6 +376,7 @@ def main(argv: List[str]):
             'no-demo',
             'no-sample',
             'no-proto',
+            'no-pirate',
             'no-all',
             'no-unlicensed',
             'all-regions',
@@ -377,8 +385,10 @@ def main(argv: List[str]):
             'input-order',
             'extension=',
             'input-dir=',
-            'blacklist=',
+            'avoid=',
+            'exclude=',
             'ignore-case',
+            'regex',
             'verbose',
             'output-dir=',
             'languages=',
@@ -400,6 +410,7 @@ def main(argv: List[str]):
     filter_program = False
     filter_enhancement_chip = False
     filter_unlicensed = False
+    filter_pirate = False
     filter_proto = False
     filter_beta = False
     filter_demo = False
@@ -413,9 +424,12 @@ def main(argv: List[str]):
     selected_regions: List[str] = []
     file_extension = ""
     input_dir = ""
-    blacklist_str: List[str] = []
-    blacklist: List[Pattern] = []
+    exclude_str: List[str] = []
+    exclude: List[Pattern] = []
+    avoid_str: List[str] = []
+    avoid: List[Pattern] = []
     ignore_case = False
+    regex = False
     output_dir = ""
     selected_languages: List[str] = []
     prioritize_languages = False
@@ -454,6 +468,7 @@ def main(argv: List[str]):
         filter_beta |= opt in ('--no-beta', '--no-all')
         filter_demo |= opt in ('--no-demo', '--no-all')
         filter_sample |= opt in ('--no-sample', '--no-all')
+        filter_pirate |= opt in ('--no-pirate', '--no-all')
         filter_unlicensed |= opt == '--no-unlicensed'
         all_regions |= opt == '--all-regions'
         all_regions_with_lang |= opt == '--all-regions-with-lang'
@@ -461,6 +476,7 @@ def main(argv: List[str]):
         version_asc |= opt == '--early-versions'
         verbose |= opt in ('-v', '--verbose')
         ignore_case |= opt == '--ignore-case'
+        regex |= opt == '--regex'
         input_order |= opt == '--input-order'
         prefer_parents |= opt == '--prefer-parents'
         prefer_prereleases |= opt == '--prefer-prereleases'
@@ -472,8 +488,10 @@ def main(argv: List[str]):
                 sys.exit(2)
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.extsep)
-        if opt in ('-b', '--blacklist'):
-            blacklist_str = arg.split(',')
+        if opt == '--avoid':
+            avoid_str = arg.split(',')
+        if opt == '--exclude':
+            exclude_str = arg.split(',')
         if opt in ('-i', '--input-dir'):
             input_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(input_dir):
@@ -525,9 +543,15 @@ def main(argv: List[str]):
         print('output-dir requires an input-dir', file=sys.stderr)
         print_help()
         sys.exit(2)
-    if ignore_case and not blacklist_str:
+    if ignore_case and not avoid_str and not exclude_str:
         print(
-            "ignore-case only works if there's a blacklist too",
+            "ignore-case only works if there's an avoid or exclude list too",
+            file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    if regex and not avoid_str and not exclude_str:
+        print(
+            "regex only works if there's an avoid or exclude list too",
             file=sys.stderr)
         print_help()
         sys.exit(2)
@@ -537,23 +561,45 @@ def main(argv: List[str]):
             file=sys.stderr)
         print_help()
         sys.exit(2)
-    if blacklist_str:
-        if ignore_case:
-            blacklist = [re.compile(re.escape(x), re.IGNORECASE)
-                         for x in blacklist_str]
-        else:
-            blacklist = [re.compile(re.escape(x)) for x in blacklist_str]
+    try:
+        if avoid_str:
+            if ignore_case:
+                avoid = [re.compile(x if regex else re.escape(x),
+                                    re.IGNORECASE)
+                         for x in avoid_str]
+            else:
+                avoid = [re.compile(x if regex else re.escape(x))
+                         for x in avoid_str]
+    except re.error as e:
+        print('invalid avoid list: %s' % e, file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    try:
+        if exclude_str:
+            if ignore_case:
+                exclude = [re.compile(x if regex else re.escape(x),
+                                      re.IGNORECASE)
+                           for x in exclude_str]
+            else:
+                exclude = [re.compile(x if regex else re.escape(x))
+                           for x in exclude_str]
+    except re.error as e:
+        print('invalid exclude list: %s' % e, file=sys.stderr)
+        print_help()
+        sys.exit(2)
 
     parsed_games = parse_games(
         dat_file,
         filter_bios,
         filter_program,
         filter_enhancement_chip,
+        filter_pirate,
         filter_unlicensed,
         filter_proto,
         filter_beta,
         filter_demo,
-        filter_sample)
+        filter_sample,
+        exclude)
 
     if verbose:
         region_text = 'Best region match'
@@ -568,7 +614,9 @@ def main(argv: List[str]):
             (filter_beta, 'Betas'),
             (filter_demo, 'Demos'),
             (filter_sample, 'Samples'),
-            (filter_unlicensed, 'Unlicensed ROMs')
+            (filter_unlicensed, 'Unlicensed ROMs'),
+            (filter_pirate, 'Pirate ROMs'),
+            (bool(exclude_str), 'Excluded ROMs by name')
         ]
         enabled_filters = ['\t%d. %s\n' % (i + 1, filters[i][1])
                            for i in range(0, len(filters)) if filters[i][0]]
@@ -581,7 +629,7 @@ def main(argv: List[str]):
             'Sorting with the following criteria:\n'
             '\t1. Good dumps\n'
             '\t2. %s\n'
-            '\t3. Non-blacklisted items\n'
+            '\t3. Non-avoided items\n'
             '\t4. %s\n'
             '\t5. %s\n'
             '\t6. %s\n'
@@ -620,7 +668,7 @@ def main(argv: List[str]):
         games.sort(key=lambda g: (
             g.is_bad,
             prefer_prereleases ^ g.is_prerelease,
-            check_blacklist(g.rom, blacklist),
+            check_in_pattern_list(g.rom, avoid),
             g.score.languages if prioritize_languages else g.score.region,
             g.score.region if prioritize_languages else g.score.languages,
             prefer_parents and not g.is_parent,
@@ -789,6 +837,10 @@ def print_help():
         'Filter out sample ROMs',
         file=sys.stderr)
     print(
+        '\t--no-pirate\t\t'
+        'Filter out pirate ROMs',
+        file=sys.stderr)
+    print(
         '\t--no-all\t\t'
         'Apply all filters above (WILL STILL ALLOW UNLICENSED ROMs)',
         file=sys.stderr)
@@ -839,13 +891,22 @@ def print_help():
         'Prerelease (Beta, Proto, etc.) ROMs will be prioritized',
         file=sys.stderr)
     print(
-        '\t-b,--blacklist=WORDS\t'
+        '\t--avoid=WORDS\t\t'
         'ROMs containing these words will be avoided (but not excluded). '
-        'Ex.: -b "Virtual Console,GameCube"',
+        'Ex.: --avoid "Virtual Console,GameCube"',
+        file=sys.stderr)
+    print(
+        '\t--exclude=WORDS\t\t'
+        'ROMs containing these words will be excluded. '
+        'Ex.: --exclude "Virtual Console,GameCube"',
         file=sys.stderr)
     print(
         '\t--ignore-case\t\t'
-        'If set, the blacklist will be case-insensitive ',
+        'If set, the avoid and exclude lists will be case-insensitive',
+        file=sys.stderr)
+    print(
+        '\t--regex\t\t\t'
+        'If set, the avoid and exclude lists are used as regular expressions',
         file=sys.stderr)
     print('\n# Help and debugging:', file=sys.stderr)
     print(
