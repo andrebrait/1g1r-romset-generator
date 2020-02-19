@@ -298,12 +298,11 @@ def parse_games(
         if not languages:
             languages = get_languages(region_data)
         parent_name = game.cloneof if game.cloneof else game.name
-        if parent_name not in games:
-            games[parent_name] = []
         region_codes = [rd.code for rd in region_data]
+        roms: List[GameEntry] = []
         for rom in game.rom:
             for region in region_codes:
-                games[parent_name].append(
+                roms.append(
                     GameEntry(
                         is_bad,
                         is_prerelease,
@@ -318,6 +317,15 @@ def parse_games(
                         proto,
                         is_parent,
                         rom.name))
+        if roms:
+            if parent_name not in games:
+                games[parent_name] = roms
+            else:
+                games[parent_name].extend(roms)
+        else:
+            print(
+                'WARNING [%s]: no ROMs found in the DAT file' % game.name,
+                file=sys.stderr)
     return games
 
 
