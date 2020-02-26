@@ -12,6 +12,8 @@ NOT_PRERELEASE = "Z"
 
 BLACKLISTED_ROM_BASE = 1000
 
+NO_WARNING: bool = False
+
 
 class RegionData:
     def __init__(
@@ -138,6 +140,7 @@ program_regex = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
 enhancement_chip_regex = re.compile(r'\(Enhancement\s*Chip\)', re.IGNORECASE)
 unl_regex = re.compile(re.escape('(Unl)'), re.IGNORECASE)
 pirate_regex = re.compile(re.escape('(Pirate)'), re.IGNORECASE)
+promo_regex = re.compile(re.escape('(Promo)'), re.IGNORECASE)
 beta_regex = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 proto_regex = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 sample_regex = re.compile(r'\(Sample(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
@@ -216,7 +219,10 @@ def get_region_data(code: str) -> Optional[RegionData]:
             break
     if not region_data:
         # We don't know which region this is, but we should filter/classify it
-        print('WARNING: unrecognized region (' + code + ')', file=sys.stderr)
+        if not NO_WARNING:
+            print(
+                'WARNING: unrecognized region (%s)' % code,
+                file=sys.stderr)
         region_data = RegionData(code, None, [])
         COUNTRY_REGION_CORRELATION.append(region_data)
     return region_data
@@ -244,6 +250,7 @@ def parse_games(
         filter_program: bool,
         filter_enhancement_chip: bool,
         filter_pirate: bool,
+        filter_promo: bool,
         filter_unlicensed: bool,
         filter_proto: bool,
         filter_beta: bool,
@@ -263,6 +270,8 @@ def parse_games(
         if filter_unlicensed and unl_regex.search(game.name):
             continue
         if filter_pirate and pirate_regex.search(game.name):
+            continue
+        if filter_promo and promo_regex.search(game.name):
             continue
         if filter_program and program_regex.search(game.name):
             continue
@@ -322,7 +331,7 @@ def parse_games(
                 games[parent_name] = roms
             else:
                 games[parent_name].extend(roms)
-        else:
+        elif not NO_WARNING:
             print(
                 'WARNING [%s]: no ROMs found in the DAT file' % game.name,
                 file=sys.stderr)
@@ -372,6 +381,7 @@ def language_value(
 
 
 def main(argv: List[str]):
+    global NO_WARNING
     try:
         opts, args = getopt.getopt(argv, 'hd:r:e:i:vo:l:w:', [
             'help',
@@ -385,6 +395,7 @@ def main(argv: List[str]):
             'no-sample',
             'no-proto',
             'no-pirate',
+            'no-promo',
             'no-all',
             'no-unlicensed',
             'all-regions',
@@ -406,7 +417,8 @@ def main(argv: List[str]):
             'prefer-prereleases',
             'all-regions-with-lang',
             'debug',
-            'move'
+            'move',
+            'no-warning'
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -419,6 +431,7 @@ def main(argv: List[str]):
     filter_enhancement_chip = False
     filter_unlicensed = False
     filter_pirate = False
+    filter_promo = False
     filter_proto = False
     filter_beta = False
     filter_demo = False
@@ -477,6 +490,7 @@ def main(argv: List[str]):
         filter_demo |= opt in ('--no-demo', '--no-all')
         filter_sample |= opt in ('--no-sample', '--no-all')
         filter_pirate |= opt in ('--no-pirate', '--no-all')
+        filter_promo |= opt in ('--no-promo', '--no-all')
         filter_unlicensed |= opt == '--no-unlicensed'
         all_regions |= opt == '--all-regions'
         all_regions_with_lang |= opt == '--all-regions-with-lang'
@@ -497,9 +511,9 @@ def main(argv: List[str]):
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.extsep)
         if opt == '--avoid':
-            avoid_str = arg.split(',')
+            avoid_str = [x.strip() for x in arg.split(',')]
         if opt == '--exclude':
-            exclude_str = arg.split(',')
+            exclude_str = [x.strip() for x in arg.split(',')]
         if opt in ('-i', '--input-dir'):
             input_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(input_dir):
@@ -516,6 +530,7 @@ def main(argv: List[str]):
                     print_help()
                     sys.exit(2)
         debug |= opt == '--debug'
+        NO_WARNING |= opt == '--no-warning'
         if debug:
             verbose = True
         move |= opt == '--move'
@@ -602,6 +617,7 @@ def main(argv: List[str]):
         filter_program,
         filter_enhancement_chip,
         filter_pirate,
+        filter_promo,
         filter_unlicensed,
         filter_proto,
         filter_beta,
@@ -624,6 +640,7 @@ def main(argv: List[str]):
             (filter_sample, 'Samples'),
             (filter_unlicensed, 'Unlicensed ROMs'),
             (filter_pirate, 'Pirate ROMs'),
+            (filter_promo, 'Promo ROMs'),
             (bool(exclude_str), 'Excluded ROMs by name')
         ]
         enabled_filters = ['\t%d. %s\n' % (i + 1, filters[i][1])
@@ -716,7 +733,7 @@ def main(argv: List[str]):
                     else:
                         print(file_name)
                     break
-                else:
+                elif not NO_WARNING:
                     if verbose:
                         print(
                             'WARNING [%s]: candidate [%s] not found, '
@@ -849,6 +866,10 @@ def print_help():
         'Filter out pirate ROMs',
         file=sys.stderr)
     print(
+        '\t--no-promo\t\t'
+        'Filter out promotion ROMs',
+        file=sys.stderr)
+    print(
         '\t--no-all\t\t'
         'Apply all filters above (WILL STILL ALLOW UNLICENSED ROMs)',
         file=sys.stderr)
@@ -928,6 +949,10 @@ def print_help():
     print(
         '\t--debug\t\t\t'
         'Prints even more messages (useful when troubleshooting)',
+        file=sys.stderr)
+    print(
+        '\t--no-warning\t\t'
+        'Supresses all warnings',
         file=sys.stderr)
 
 
