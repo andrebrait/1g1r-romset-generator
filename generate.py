@@ -7,6 +7,8 @@ from typing import Optional, Match, List, Dict, Pattern, Any, Callable
 
 import datafile
 
+FILE_PREFIX = 'file:'
+
 UNSELECTED = 10000
 NOT_PRERELEASE = "Z"
 
@@ -406,6 +408,8 @@ def main(argv: List[str]):
             'input-dir=',
             'avoid=',
             'exclude=',
+            'exclude-after=',
+            'sep=',
             'ignore-case',
             'regex',
             'verbose',
@@ -445,10 +449,13 @@ def main(argv: List[str]):
     selected_regions: List[str] = []
     file_extension = ""
     input_dir = ""
-    exclude_str: List[str] = []
+    exclude_str = ""
     exclude: List[Pattern] = []
-    avoid_str: List[str] = []
+    avoid_str = ""
     avoid: List[Pattern] = []
+    exclude_after_str = ""
+    exclude_after: List[Pattern] = []
+    sep = ','
     ignore_case = False
     regex = False
     output_dir = ""
@@ -499,25 +506,29 @@ def main(argv: List[str]):
         verbose |= opt in ('-v', '--verbose')
         ignore_case |= opt == '--ignore-case'
         regex |= opt == '--regex'
+        if opt == '--sep':
+            sep = arg.strip()
         input_order |= opt == '--input-order'
         prefer_parents |= opt == '--prefer-parents'
         prefer_prereleases |= opt == '--prefer-prereleases'
         if opt in ('-d', '--dat'):
             dat_file = os.path.expanduser(arg.strip())
             if not os.path.isfile(dat_file):
-                print('invalid DAT file: ' + dat_file, file=sys.stderr)
+                print('invalid DAT file: %s' % dat_file, file=sys.stderr)
                 print_help()
                 sys.exit(2)
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.extsep)
         if opt == '--avoid':
-            avoid_str = [x.strip() for x in arg.split(',')]
+            avoid_str = arg
         if opt == '--exclude':
-            exclude_str = [x.strip() for x in arg.split(',')]
+            exclude_str = arg
         if opt in ('-i', '--input-dir'):
             input_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(input_dir):
-                print('invalid input directory: ' + input_dir, file=sys.stderr)
+                print(
+                    'invalid input directory: %s' % input_dir,
+                    file=sys.stderr)
                 print_help()
                 sys.exit(2)
         if opt in ('-o', '--output-dir'):
@@ -526,7 +537,9 @@ def main(argv: List[str]):
                 try:
                     os.makedirs(output_dir)
                 except OSError:
-                    print('invalid output DIR: ' + output_dir, file=sys.stderr)
+                    print(
+                        'invalid output DIR: %s' % output_dir,
+                        file=sys.stderr)
                     print_help()
                     sys.exit(2)
         debug |= opt == '--debug'
@@ -585,29 +598,21 @@ def main(argv: List[str]):
         print_help()
         sys.exit(2)
     try:
-        if avoid_str:
-            if ignore_case:
-                avoid = [re.compile(x if regex else re.escape(x),
-                                    re.IGNORECASE)
-                         for x in avoid_str]
-            else:
-                avoid = [re.compile(x if regex else re.escape(x))
-                         for x in avoid_str]
-    except re.error as e:
+        avoid = parse_list(avoid_str, ignore_case, regex, sep)
+    except re.error or OSError as e:
         print('invalid avoid list: %s' % e, file=sys.stderr)
         print_help()
         sys.exit(2)
     try:
-        if exclude_str:
-            if ignore_case:
-                exclude = [re.compile(x if regex else re.escape(x),
-                                      re.IGNORECASE)
-                           for x in exclude_str]
-            else:
-                exclude = [re.compile(x if regex else re.escape(x))
-                           for x in exclude_str]
-    except re.error as e:
+        exclude = parse_list(exclude_str, ignore_case, regex, sep)
+    except re.error or OSError as e:
         print('invalid exclude list: %s' % e, file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    try:
+        exclude_after = parse_list(exclude_after_str, ignore_case, regex, sep)
+    except re.error or OSError as e:
+        print('invalid exclude-after list: %s' % e, file=sys.stderr)
         print_help()
         sys.exit(2)
 
@@ -722,6 +727,8 @@ def main(argv: List[str]):
         size = len(entries)
         for i in range(0, size):
             entry = entries[i]
+            if check_in_pattern_list(entry.rom, exclude_after):
+                break
             file_name = entry.rom
             if file_extension:
                 file_name = replace_extension(file_extension, file_name)
@@ -751,6 +758,31 @@ def main(argv: List[str]):
             else:
                 print(file_name)
                 break
+
+
+def parse_list(
+        arg_str: str,
+        ignore_case: bool,
+        regex: bool,
+        separator: str) -> List[Pattern]:
+    if arg_str:
+        if arg_str.startswith(FILE_PREFIX):
+            file = (arg_str[len(FILE_PREFIX):]).strip()
+            file = os.path.expanduser(file)
+            if not os.path.isfile(file):
+                raise OSError('invalid file: %s' % file)
+            arg_list = [x.strip() for x in open(file)]
+        else:
+            arg_list = [x.strip() for x in arg_str.split(separator)]
+        if ignore_case:
+            final_args = [re.compile(x if regex else re.escape(x),
+                                     re.IGNORECASE)
+                          for x in arg_list]
+        else:
+            final_args = [re.compile(x if regex else re.escape(x))
+                          for x in arg_list]
+        return final_args
+    return []
 
 
 def set_scores(
@@ -927,6 +959,11 @@ def print_help():
     print(
         '\t--exclude=WORDS\t\t'
         'ROMs containing these words will be excluded. '
+        'Ex.: --exclude "Virtual Console,GameCube"',
+        file=sys.stderr)
+    print(
+        '\t--exclude-after=WORDS\t\t'
+        'If the best candidate contains these words, skip all candidates. '
         'Ex.: --exclude "Virtual Console,GameCube"',
         file=sys.stderr)
     print(
