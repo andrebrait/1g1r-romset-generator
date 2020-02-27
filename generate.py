@@ -450,11 +450,8 @@ def main(argv: List[str]):
     file_extension = ""
     input_dir = ""
     exclude_str = ""
-    exclude: List[Pattern] = []
     avoid_str = ""
-    avoid: List[Pattern] = []
     exclude_after_str = ""
-    exclude_after: List[Pattern] = []
     sep = ','
     ignore_case = False
     regex = False
@@ -775,13 +772,11 @@ def parse_list(
         else:
             arg_list = [x.strip() for x in arg_str.split(separator)]
         if ignore_case:
-            final_args = [re.compile(x if regex else re.escape(x),
-                                     re.IGNORECASE)
-                          for x in arg_list]
+            return [re.compile(x if regex else re.escape(x), re.IGNORECASE)
+                    for x in arg_list]
         else:
-            final_args = [re.compile(x if regex else re.escape(x))
-                          for x in arg_list]
-        return final_args
+            return [re.compile(x if regex else re.escape(x))
+                    for x in arg_list]
     return []
 
 
