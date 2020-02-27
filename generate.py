@@ -599,19 +599,19 @@ def main(argv: List[str]):
         sys.exit(2)
     try:
         avoid = parse_list(avoid_str, ignore_case, regex, sep)
-    except re.error or OSError as e:
+    except (re.error, OSError) as e:
         print('invalid avoid list: %s' % e, file=sys.stderr)
         print_help()
         sys.exit(2)
     try:
         exclude = parse_list(exclude_str, ignore_case, regex, sep)
-    except re.error or OSError as e:
+    except (re.error, OSError) as e:
         print('invalid exclude list: %s' % e, file=sys.stderr)
         print_help()
         sys.exit(2)
     try:
         exclude_after = parse_list(exclude_after_str, ignore_case, regex, sep)
-    except re.error or OSError as e:
+    except (re.error, OSError) as e:
         print('invalid exclude-after list: %s' % e, file=sys.stderr)
         print_help()
         sys.exit(2)
