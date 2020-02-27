@@ -28,7 +28,7 @@ Options:
         -e,--extension=EXT      ROM names will use this extension.
                                 Ex.: -e zip
         -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
-                                Ex.: -i "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
+                                Ex.: -o "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
 
 # Filtering:

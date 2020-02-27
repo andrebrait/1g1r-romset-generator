@@ -864,7 +864,7 @@ def print_help():
         '\t-o,--output-dir=PATH\t'
         'If provided, ROMs will be copied to an output directory'
         '\n\t\t\t\t'
-        'Ex.: -i "C:\\Users\\John\\Downloads\\Emulators\\SNES\\ROMs\\1G1R"',
+        'Ex.: -o "C:\\Users\\John\\Downloads\\Emulators\\SNES\\ROMs\\1G1R"',
         file=sys.stderr)
     print(
         '\t--move\t\t\t'
