@@ -12,7 +12,7 @@ FILE_PREFIX = 'file:'
 UNSELECTED = 10000
 NOT_PRERELEASE = "Z"
 
-BLACKLISTED_ROM_BASE = 1000
+AVOIDED_ROM_BASE = 1000
 
 NO_WARNING: bool = False
 
@@ -409,7 +409,7 @@ def main(argv: List[str]):
             'avoid=',
             'exclude=',
             'exclude-after=',
-            'sep=',
+            'separator=',
             'ignore-case',
             'regex',
             'verbose',
@@ -506,7 +506,7 @@ def main(argv: List[str]):
         verbose |= opt in ('-v', '--verbose')
         ignore_case |= opt == '--ignore-case'
         regex |= opt == '--regex'
-        if opt == '--sep':
+        if opt == '--separator':
             sep = arg.strip()
         input_order |= opt == '--input-order'
         prefer_parents |= opt == '--prefer-parents'
@@ -837,27 +837,39 @@ def print_help():
     print('\n# ROM selection and file manipulation:', file=sys.stderr)
     print(
         '\t-r,--regions=REGIONS\t'
-        'A list of regions separated by commas. Ex.: -r USA,EUR,JPN',
+        'A list of regions separated by commas.'
+        '\n\t\t\t\t'
+        'Ex.: -r USA,EUR,JPN',
         file=sys.stderr)
     print(
         '\t-l,--languages=LANGS\t'
-        'An optional list of languages separated by commas. Ex.: -l en,es,ru',
+        'An optional list of languages separated by commas.'
+        '\n\t\t\t\t'
+        'Ex.: -l en,es,ru',
         file=sys.stderr)
     print(
         '\t-d,--dat=DAT_FILE\t'
-        'The DAT file to be used',
+        'The DAT file to be used'
+        '\n\t\t\t\t'
+        'Ex.: -d snes.dat',
         file=sys.stderr)
     print(
         '\t-i,--input-dir=PATH\t'
-        'Provides an input directory (i.e.: where your ROMs are)',
+        'Provides an input directory (i.e.: where your ROMs are)'
+        '\n\t\t\t\t'
+        'Ex.: -i "C:\\Users\\John\\Downloads\\Emulators\\SNES\\ROMs"',
         file=sys.stderr)
     print(
         '\t-e,--extension=EXT\t'
-        'ROM names will use this extension. Ex.: -e zip',
+        'ROM names will use this extension.'
+        '\n\t\t\t\t'
+        'Ex.: -e zip',
         file=sys.stderr)
     print(
         '\t-o,--output-dir=PATH\t'
-        'If provided, ROMs will be copied to an output directory',
+        'If provided, ROMs will be copied to an output directory'
+        '\n\t\t\t\t'
+        'Ex.: -i "C:\\Users\\John\\Downloads\\Emulators\\SNES\\ROMs\\1G1R"',
         file=sys.stderr)
     print(
         '\t--move\t\t\t'
@@ -923,7 +935,9 @@ def print_help():
     print(
         '\t-w,--language-weight=N\t'
         'The degree of priority the first selected languages receive over the '
-        'latter ones. Default: 3',
+        'latter ones.'
+        '\n\t\t\t\t'
+        'Default: 3',
         file=sys.stderr)
     print(
         '\t--prioritize-languages\t'
@@ -953,18 +967,27 @@ def print_help():
         file=sys.stderr)
     print(
         '\t--avoid=WORDS\t\t'
-        'ROMs containing these words will be avoided (but not excluded). '
-        'Ex.: --avoid "Virtual Console,GameCube"',
+        'ROMs containing these words will be avoided (but not excluded).'
+        '\n\t\t\t\t'
+        'Ex.: --avoid "Virtual Console,GameCube"'
+        '\n\t\t\t\t'
+        'Ex.: --avoid "file:avoid.txt" ',
         file=sys.stderr)
     print(
         '\t--exclude=WORDS\t\t'
-        'ROMs containing these words will be excluded. '
-        'Ex.: --exclude "Virtual Console,GameCube"',
+        'ROMs containing these words will be excluded.'
+        '\n\t\t\t\t'
+        'Ex.: --exclude "Virtual Console,GameCube"'
+        '\n\t\t\t\t'
+        'Ex.: --exclude "file:exclude.txt"',
         file=sys.stderr)
     print(
-        '\t--exclude-after=WORDS\t\t'
-        'If the best candidate contains these words, skip all candidates. '
-        'Ex.: --exclude "Virtual Console,GameCube"',
+        '\t--exclude-after=WORDS\t'
+        'If the best candidate contains these words, skip all candidates.'
+        '\n\t\t\t\t'
+        'Ex.: --exclude-after "Virtual Console,GameCube"'
+        '\n\t\t\t\t'
+        'Ex.: --exclude-after "file:exclude-after.txt"',
         file=sys.stderr)
     print(
         '\t--ignore-case\t\t'
@@ -973,6 +996,12 @@ def print_help():
     print(
         '\t--regex\t\t\t'
         'If set, the avoid and exclude lists are used as regular expressions',
+        file=sys.stderr)
+    print(
+        '\t--separator=SEP\t\t'
+        'Provides a separator for the avoid, exclude & exclude-after options.'
+        '\n\t\t\t\t'
+        'Default: ","',
         file=sys.stderr)
     print('\n# Help and debugging:', file=sys.stderr)
     print(
@@ -990,6 +1019,10 @@ def print_help():
     print(
         '\t--no-warning\t\t'
         'Supresses all warnings',
+        file=sys.stderr)
+    print(
+        '\n# See https://github.com/andrebrait/1g1r-romset-generator/wiki '
+        'for more details',
         file=sys.stderr)
 
 

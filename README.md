@@ -9,19 +9,26 @@ A small utility written in Python that uses No-Intro DATs to generate 1G1R ROM s
 
 #### Usage
 
-For a comprehensive guide on how to use this tool, check out the [wiki page](https://github.com/andrebrait/1g1r-romset-generator/wiki) for this repository.
+For a comprehensive guide on how to use this tool, check out the 
+[wiki page](https://github.com/andrebrait/1g1r-romset-generator/wiki) for this repository.
 
 ```
 Usage: python3 generate.py [options] -d input_file.dat
 Options:
 
 # ROM selection and file manipulation:
-        -r,--regions=REGIONS    A list of regions separated by commas. Ex.: -r USA,EUR,JPN
-        -l,--languages=LANGS    An optional list of languages separated by commas. Ex.: -l en,es,ru
+        -r,--regions=REGIONS    A list of regions separated by commas.
+                                Ex.: -r USA,EUR,JPN
+        -l,--languages=LANGS    An optional list of languages separated by commas.
+                                Ex.: -l en,es,ru
         -d,--dat=DAT_FILE       The DAT file to be used
+                                Ex.: -d snes.dat
         -i,--input-dir=PATH     Provides an input directory (i.e.: where your ROMs are)
-        -e,--extension=EXT      ROM names will use this extension. Ex.: -e zip
+                                Ex.: -i "C:\Users\John\Downloads\Emulators\SNES\ROMs"
+        -e,--extension=EXT      ROM names will use this extension.
+                                Ex.: -e zip
         -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
+                                Ex.: -i "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
 
 # Filtering:
@@ -33,28 +40,40 @@ Options:
         --no-demo               Filter out demo ROMs
         --no-sample             Filter out sample ROMs
         --no-pirate             Filter out pirate ROMs
+        --no-promo              Filter out promotion ROMs
         --no-all                Apply all filters above (WILL STILL ALLOW UNLICENSED ROMs)
         --no-unlicensed         Filter out unlicensed ROMs
         --all-regions           Includes files of unselected regions, if a selected one if not available
         --all-regions-with-lang Same as --all-regions, but only if a ROM has at least one selected language
 
 # Adjustment and customization:
-        -w,--language-weight=N  The degree of priority the first selected languages receive over the latter ones. Default: 3
+        -w,--language-weight=N  The degree of priority the first selected languages receive over the latter ones.
+                                Default: 3
         --prioritize-languages  If set, ROMs matching more languages will be prioritized over ROMs matching regions
         --early-revisions       ROMs of earlier revisions will be prioritized
         --early-versions        ROMs of earlier versions will be prioritized
         --input-order           ROMs will be prioritized by the order they appear in the DAT file
         --prefer-parents        Parent ROMs will be prioritized over clones
         --prefer-prereleases    Prerelease (Beta, Proto, etc.) ROMs will be prioritized
-        --avoid=WORDS           ROMs containing these words will be avoided (but not excluded). Ex.: --avoid "Virtual Console,GameCube"
-        --exclude=WORDS         ROMs containing these words will be excluded. Ex.: --exclude "Virtual Console,GameCube"
+        --avoid=WORDS           ROMs containing these words will be avoided (but not excluded).
+                                Ex.: --avoid "Virtual Console,GameCube"
+                                Ex.: --avoid "file:avoid.txt" 
+        --exclude=WORDS         ROMs containing these words will be excluded.
+                                Ex.: --exclude "Virtual Console,GameCube"
+                                Ex.: --exclude "file:exclude.txt"
+        --exclude-after=WORDS   If the best candidate contains these words, skip all candidates.
+                                Ex.: --exclude-after "Virtual Console,GameCube"
+                                Ex.: --exclude-after "file:exclude-after.txt"
         --ignore-case           If set, the avoid and exclude lists will be case-insensitive
         --regex                 If set, the avoid and exclude lists are used as regular expressions
+        --separator=SEP         Provides a separator for the avoid, exclude & exclude-after options.
+                                Default: ","
 
 # Help and debugging:
         -h,--help               Prints this usage message
         -v,--verbose            Prints more messages (useful when troubleshooting)
         --debug                 Prints even more messages (useful when troubleshooting)
+        --no-warning            Supresses all warnings
 ```
 
 #### Motivation
@@ -82,7 +101,7 @@ better select the ROMs that should be part of the generated set, according to th
 Sorting happens with the following criteria:
 1. Good dumps
 2. Released ROMs (unless `--prefer-prereleases` is used)
-3. Non-blacklisted items
+3. Non-avoided items
 4. Best region match (this can be switched with item #5 by using `--prioritize-languages`)
 5. Best language match (this can be switched with item #4 by using `--prioritize-languages`)
 6. Parent ROMs (if `--prefer-parents` is used)
