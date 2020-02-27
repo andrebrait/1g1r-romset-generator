@@ -520,6 +520,8 @@ def main(argv: List[str]):
             avoid_str = arg
         if opt == '--exclude':
             exclude_str = arg
+        if opt == '--exclude-after':
+            exclude_after_str = arg
         if opt in ('-i', '--input-dir'):
             input_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(input_dir):
