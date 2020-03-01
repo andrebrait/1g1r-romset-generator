@@ -920,7 +920,7 @@ def print_help():
         file=sys.stderr)
     print(
         '\t--all-regions\t\t'
-        'Includes files of unselected regions, if a selected one if not '
+        'Includes files of unselected regions, if a selected one is not '
         'available',
         file=sys.stderr)
     print(
