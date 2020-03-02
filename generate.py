@@ -6,6 +6,7 @@ import sys
 from typing import Optional, Match, List, Dict, Pattern, Any, Callable
 
 import datafile
+from datafile import rom
 
 FILE_PREFIX = 'file:'
 
@@ -98,7 +99,8 @@ class GameEntry:
             beta: str,
             proto: str,
             is_parent: bool,
-            rom: str):
+            name: str,
+            roms: List[rom]):
         self.is_bad = is_bad
         self.is_prerelease = is_prerelease
         self.region = region
@@ -111,7 +113,8 @@ class GameEntry:
         self.beta = beta
         self.proto = proto
         self.is_parent = is_parent
-        self.rom = rom
+        self.name = name
+        self.roms = roms
         self.score: Optional[Score] = None
 
     def __repr__(self):
@@ -310,30 +313,34 @@ def parse_games(
             languages = get_languages(region_data)
         parent_name = game.cloneof if game.cloneof else game.name
         region_codes = [rd.code for rd in region_data]
-        roms: List[GameEntry] = []
-        for rom in game.rom:
-            for region in region_codes:
-                roms.append(
-                    GameEntry(
-                        is_bad,
-                        is_prerelease,
-                        region,
-                        languages,
-                        input_index,
-                        revision,
-                        version,
-                        sample,
-                        demo,
-                        beta,
-                        proto,
-                        is_parent,
-                        rom.name))
-        if roms:
+        game_entries: List[GameEntry] = []
+        for region in region_codes:
+            game_entries.append(
+                GameEntry(
+                    is_bad,
+                    is_prerelease,
+                    region,
+                    languages,
+                    input_index,
+                    revision,
+                    version,
+                    sample,
+                    demo,
+                    beta,
+                    proto,
+                    is_parent,
+                    game.name,
+                    game.rom if game.rom else []))
+        if game_entries:
             if parent_name not in games:
-                games[parent_name] = roms
+                games[parent_name] = game_entries
             else:
-                games[parent_name].extend(roms)
+                games[parent_name].extend(game_entries)
         elif not NO_WARNING:
+            print(
+                'WARNING [%s]: no recognizable regions found' % game.name,
+                file=sys.stderr)
+        if not game.rom and not NO_WARNING:
             print(
                 'WARNING [%s]: no ROMs found in the DAT file' % game.name,
                 file=sys.stderr)
@@ -697,7 +704,7 @@ def main(argv: List[str]):
         games.sort(key=lambda g: (
             g.is_bad,
             prefer_prereleases ^ g.is_prerelease,
-            check_in_pattern_list(g.rom, avoid),
+            check_in_pattern_list(g.name, avoid),
             g.score.languages if prioritize_languages else g.score.region,
             g.score.region if prioritize_languages else g.score.languages,
             prefer_parents and not g.is_parent,
@@ -712,7 +719,7 @@ def main(argv: List[str]):
             not g.is_parent))
         if verbose:
             print(
-                'Candidate order for [%s]: %s' % (key, [g.rom for g in games]),
+                'Candidate order for [%s]: %s' % (key, [g.name for g in games]),
                 file=sys.stderr)
 
     for game, entries in parsed_games.items():
@@ -726,9 +733,9 @@ def main(argv: List[str]):
         size = len(entries)
         for i in range(0, size):
             entry = entries[i]
-            if check_in_pattern_list(entry.rom, exclude_after):
+            if check_in_pattern_list(entry.name, exclude_after):
                 break
-            file_name = entry.rom
+            file_name = entry.name
             if file_extension:
                 file_name = replace_extension(file_extension, file_name)
             if input_dir:
@@ -739,6 +746,33 @@ def main(argv: List[str]):
                     else:
                         print(file_name)
                     break
+                elif os.path.isdir(full_path):
+                    for entry_rom in entry.roms:
+                        rom_full_path = os.path.join(full_path, entry_rom.name)
+                        if os.path.isfile(rom_full_path):
+                            if output_dir:
+                                rom_output_dir = os.path.join(
+                                    output_dir,
+                                    file_name)
+                                os.makedirs(rom_output_dir, exist_ok=True)
+                                transfer_file(
+                                    rom_full_path,
+                                    rom_output_dir,
+                                    move)
+                            else:
+                                print(file_name + os.path.sep + entry_rom.name)
+                        elif not NO_WARNING:
+                            if verbose:
+                                print(
+                                    'WARNING [%s]: ROM file [%s] for candidate '
+                                    '[%s] not found' %
+                                    (game, entry_rom.name, file_name),
+                                    file=sys.stderr)
+                            else:
+                                print(
+                                    'WARNING: ROM file [%s] for candidate [%s] '
+                                    'not found' % (entry_rom.name, file_name),
+                                    file=sys.stderr)
                 elif not NO_WARNING:
                     if verbose:
                         print(
@@ -748,7 +782,8 @@ def main(argv: List[str]):
                     else:
                         print(
                             'WARNING: candidate [%s] not found, '
-                            'trying next one' % file_name, file=sys.stderr)
+                            'trying next one' % file_name,
+                            file=sys.stderr)
                     if i == size - 1:
                         print(
                             'WARNING: no eligible candidates for [%s] '
