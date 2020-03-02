@@ -33,6 +33,7 @@ COUNTRY_REGION_CORRELATION = [
     # Language needs checking
     RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),
     RegionData('AUS', re.compile(r'(Australia)', re.IGNORECASE), ['en']),
+    RegionData('ARG', re.compile(r'(Argentina)', re.IGNORECASE), ['es']),
     RegionData('BRA', re.compile(r'(Brazil)', re.IGNORECASE), ['pt']),
     # Language needs checking
     RegionData('CAN', re.compile(r'(Canada)', re.IGNORECASE), ['en', 'fr']),
@@ -48,6 +49,7 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('GRE', re.compile(r'(Greece)', re.IGNORECASE), ['el']),
     RegionData('ITA', re.compile(r'(Italy)', re.IGNORECASE), ['it']),
     RegionData('JPN', re.compile(r'((Japan)|(World))', re.IGNORECASE), ['ja']),
+    RegionData('MEX', re.compile(r'(Mexico)', re.IGNORECASE), ['es']),
     RegionData('HOL', re.compile(r'(Netherlands)', re.IGNORECASE), ['nl']),
     RegionData('KOR', re.compile(r'(Korea)', re.IGNORECASE), ['ko']),
     RegionData('NOR', re.compile(r'(Norway)', re.IGNORECASE), ['no']),
@@ -356,13 +358,6 @@ def get_index(ls: List[Any], item: Any, default: int) -> int:
         return default
 
 
-def replace_extension(extension: str, file_name: str) -> str:
-    try:
-        return file_name[:file_name.rindex(os.extsep)] + os.extsep + extension
-    except ValueError:
-        return file_name + os.extsep + extension
-
-
 def check_in_pattern_list(name: str, patterns: List[Pattern]) -> bool:
     if patterns:
         for pattern in patterns:
@@ -522,7 +517,7 @@ def main(argv: List[str]):
                 print_help()
                 sys.exit(2)
         if opt in ('-e', '--extension'):
-            file_extension = arg.strip().lstrip(os.extsep)
+            file_extension = arg.strip().lstrip(os.path.extsep)
         if opt == '--avoid':
             avoid_str = arg
         if opt == '--exclude':
@@ -738,7 +733,7 @@ def main(argv: List[str]):
                 break
             file_name = entry.name
             if file_extension:
-                file_name = replace_extension(file_extension, file_name)
+                file_name = file_name + os.path.extsep + file_extension
             if input_dir:
                 full_path = os.path.join(input_dir, file_name)
                 if os.path.isfile(full_path):
