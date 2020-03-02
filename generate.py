@@ -652,7 +652,8 @@ def main(argv: List[str]):
             (filter_unlicensed, 'Unlicensed ROMs'),
             (filter_pirate, 'Pirate ROMs'),
             (filter_promo, 'Promo ROMs'),
-            (bool(exclude_str), 'Excluded ROMs by name')
+            (bool(exclude_str), 'Excluded ROMs by name'),
+            (bool(exclude_after_str), 'Excluded ROMs by name (after selection)')
         ]
         enabled_filters = ['\t%d. %s\n' % (i + 1, filters[i][1])
                            for i in range(0, len(filters)) if filters[i][0]]
@@ -759,6 +760,7 @@ def main(argv: List[str]):
                                     rom_full_path,
                                     rom_output_dir,
                                     move)
+                                shutil.copystat(full_path, rom_output_dir)
                             else:
                                 print(file_name + os.path.sep + entry_rom.name)
                         elif not NO_WARNING:

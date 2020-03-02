@@ -43,7 +43,7 @@ Options:
         --no-promo              Filter out promotion ROMs
         --no-all                Apply all filters above (WILL STILL ALLOW UNLICENSED ROMs)
         --no-unlicensed         Filter out unlicensed ROMs
-        --all-regions           Includes files of unselected regions, if a selected one if not available
+        --all-regions           Includes files of unselected regions, if a selected one is not available
         --all-regions-with-lang Same as --all-regions, but only if a ROM has at least one selected language
 
 # Adjustment and customization:
