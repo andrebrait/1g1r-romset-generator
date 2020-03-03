@@ -32,8 +32,8 @@ class RegionData:
 COUNTRY_REGION_CORRELATION = [
     # Language needs checking
     RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),
-    RegionData('AUS', re.compile(r'(Australia)', re.IGNORECASE), ['en']),
     RegionData('ARG', re.compile(r'(Argentina)', re.IGNORECASE), ['es']),
+    RegionData('AUS', re.compile(r'(Australia)', re.IGNORECASE), ['en']),
     RegionData('BRA', re.compile(r'(Brazil)', re.IGNORECASE), ['pt']),
     # Language needs checking
     RegionData('CAN', re.compile(r'(Canada)', re.IGNORECASE), ['en', 'fr']),
@@ -49,9 +49,9 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('GRE', re.compile(r'(Greece)', re.IGNORECASE), ['el']),
     RegionData('ITA', re.compile(r'(Italy)', re.IGNORECASE), ['it']),
     RegionData('JPN', re.compile(r'((Japan)|(World))', re.IGNORECASE), ['ja']),
-    RegionData('MEX', re.compile(r'(Mexico)', re.IGNORECASE), ['es']),
     RegionData('HOL', re.compile(r'(Netherlands)', re.IGNORECASE), ['nl']),
     RegionData('KOR', re.compile(r'(Korea)', re.IGNORECASE), ['ko']),
+    RegionData('MEX', re.compile(r'(Mexico)', re.IGNORECASE), ['es']),
     RegionData('NOR', re.compile(r'(Norway)', re.IGNORECASE), ['no']),
     RegionData('RUS', re.compile(r'(Russia)', re.IGNORECASE), ['ru']),
     RegionData('SPA', re.compile(r'(Spain)', re.IGNORECASE), ['es']),
@@ -770,6 +770,7 @@ def main(argv: List[str]):
                                     'WARNING: ROM file [%s] for candidate [%s] '
                                     'not found' % (entry_rom.name, file_name),
                                     file=sys.stderr)
+                    break
                 elif not NO_WARNING:
                     if verbose:
                         print(
