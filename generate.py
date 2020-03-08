@@ -251,6 +251,21 @@ def is_present(code: str, region_data: List[RegionData]) -> bool:
     return False
 
 
+def validate_dat(file: str) -> None:
+    root = datafile.parse(file, silence=True)
+    has_cloneof = False
+    for game in root.game:
+        if game.cloneof:
+            has_cloneof = True
+            break
+    if not has_cloneof:
+        print('This DAT *seems* to be a Standard DAT')
+        print('A Parent/Clone XML DAT is required to generate a 1G1R ROM set')
+        answer = input('Do you want to continue anyway? (y/n)\n')
+        if answer.strip() not in ('y', 'Y'):
+            sys.exit()
+
+
 def parse_games(
         file: str,
         filter_bios: bool,
@@ -408,6 +423,7 @@ def main(argv: List[str]):
             'input-order',
             'extension=',
             'input-dir=',
+            'prefer=',
             'avoid=',
             'exclude=',
             'exclude-after=',
@@ -451,6 +467,7 @@ def main(argv: List[str]):
     selected_regions: List[str] = []
     file_extension = ""
     input_dir = ""
+    prefer_str = ""
     exclude_str = ""
     avoid_str = ""
     exclude_after_str = ""
@@ -470,10 +487,12 @@ def main(argv: List[str]):
             print_help()
             sys.exit()
         if opt in ('-r', '--regions'):
-            selected_regions = [x.strip().upper() for x in arg.split(',')]
+            selected_regions = [x.strip().upper() for x in arg.split(',')
+                                if is_valid(x)]
         if opt in ('-l', '--languages'):
             selected_languages = [x.strip().lower()
-                                  for x in reversed(arg.split(','))]
+                                  for x in reversed(arg.split(','))
+                                  if is_valid(x)]
         if opt in ('-w', '--language-weight'):
             try:
                 language_weight = int(arg.strip())
@@ -518,6 +537,8 @@ def main(argv: List[str]):
                 sys.exit(2)
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.path.extsep)
+        if opt == '--prefer':
+            prefer_str = arg
         if opt == '--avoid':
             avoid_str = arg
         if opt == '--exclude':
@@ -580,15 +601,16 @@ def main(argv: List[str]):
         print('output-dir requires an input-dir', file=sys.stderr)
         print_help()
         sys.exit(2)
-    if ignore_case and not avoid_str and not exclude_str:
+    if ignore_case and not prefer_str and not avoid_str and not exclude_str:
         print(
-            "ignore-case only works if there's an avoid or exclude list too",
+            "ignore-case only works if there's a prefer, "
+            "avoid or exclude list too",
             file=sys.stderr)
         print_help()
         sys.exit(2)
-    if regex and not avoid_str and not exclude_str:
+    if regex and not prefer_str and not avoid_str and not exclude_str:
         print(
-            "regex only works if there's an avoid or exclude list too",
+            "regex only works if there's a prefer, avoid or exclude list too",
             file=sys.stderr)
         print_help()
         sys.exit(2)
@@ -596,6 +618,12 @@ def main(argv: List[str]):
         print(
             'all-regions is mutually exclusive with all-regions-with-lang',
             file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    try:
+        prefer = parse_list(prefer_str, ignore_case, regex, sep)
+    except (re.error, OSError) as e:
+        print('invalid prefer list: %s' % e, file=sys.stderr)
         print_help()
         sys.exit(2)
     try:
@@ -616,6 +644,8 @@ def main(argv: List[str]):
         print('invalid exclude-after list: %s' % e, file=sys.stderr)
         print_help()
         sys.exit(2)
+
+    validate_dat(dat_file)
 
     parsed_games = parse_games(
         dat_file,
@@ -661,24 +691,27 @@ def main(argv: List[str]):
             'Sorting with the following criteria:\n'
             '\t1. Good dumps\n'
             '\t2. %s\n'
-            '\t3. Non-avoided items\n'
+            '\t3. Non-avoided items%s\n'
             '\t4. %s\n'
             '\t5. %s\n'
             '\t6. %s\n'
             '\t7. %s\n'
-            '\t8. %s revision\n'
-            '\t9. %s version\n'
-            '\t10. Latest sample\n'
-            '\t11. Latest demo\n'
-            '\t12. Latest beta\n'
-            '\t13. Latest prototype\n'
-            '\t14. Most languages supported\n'
-            '\t15. Parent ROMs\n' %
+            '\t8. Preferred items%s\n'
+            '\t9. %s revision\n'
+            '\t10. %s version\n'
+            '\t11. Latest sample\n'
+            '\t12. Latest demo\n'
+            '\t13. Latest beta\n'
+            '\t14. Latest prototype\n'
+            '\t15. Most languages supported\n'
+            '\t16. Parent ROMs\n' %
             ('Prelease ROMs' if prefer_prereleases else 'Released ROMs',
+             '' if avoid else ' (Ignored)',
              lang_text if prioritize_languages else region_text,
              region_text if prioritize_languages else lang_text,
              parents_text if prefer_parents else parents_text + ' (Ignored)',
              index_text if input_order else index_text + ' (Ignored)',
+             '' if prefer else ' (Ignored)',
              'Earliest' if revision_asc else 'Latest',
              'Earliest' if version_asc else 'Latest'),
             file=sys.stderr)
@@ -705,6 +738,7 @@ def main(argv: List[str]):
             g.score.region if prioritize_languages else g.score.languages,
             prefer_parents and not g.is_parent,
             g.input_index if input_order else 0,
+            not check_in_pattern_list(g.name, prefer),
             g.score.revision,
             g.score.version,
             g.score.sample,
@@ -803,16 +837,21 @@ def parse_list(
             file = os.path.expanduser(file)
             if not os.path.isfile(file):
                 raise OSError('invalid file: %s' % file)
-            arg_list = [x.strip() for x in open(file)]
+            arg_list = [x.strip() for x in open(file) if is_valid(x)]
         else:
-            arg_list = [x.strip() for x in arg_str.split(separator)]
+            arg_list = [x.strip() for x in arg_str.split(separator)
+                        if is_valid(x)]
         if ignore_case:
             return [re.compile(x if regex else re.escape(x), re.IGNORECASE)
-                    for x in arg_list]
+                    for x in arg_list if is_valid(x)]
         else:
             return [re.compile(x if regex else re.escape(x))
-                    for x in arg_list]
+                    for x in arg_list if is_valid(x)]
     return []
+
+
+def is_valid(x: str) -> bool:
+    return bool(x and not x.isspace())
 
 
 def set_scores(
@@ -994,6 +1033,14 @@ def print_help():
     print(
         '\t--prefer-prereleases\t'
         'Prerelease (Beta, Proto, etc.) ROMs will be prioritized',
+        file=sys.stderr)
+    print(
+        '\t--prefer=WORDS\t\t'
+        'ROMs containing these words will be preferred'
+        '\n\t\t\t\t'
+        'Ex.: --prefer "Virtual Console,GameCube"'
+        '\n\t\t\t\t'
+        'Ex.: --prefer "file:prefer.txt" ',
         file=sys.stderr)
     print(
         '\t--avoid=WORDS\t\t'

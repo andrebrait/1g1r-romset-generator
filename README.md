@@ -55,6 +55,9 @@ Options:
         --input-order           ROMs will be prioritized by the order they appear in the DAT file
         --prefer-parents        Parent ROMs will be prioritized over clones
         --prefer-prereleases    Prerelease (Beta, Proto, etc.) ROMs will be prioritized
+        --prefer=WORDS          ROMs containing these words will be preferred
+                                Ex.: --prefer "Virtual Console,GameCube"
+                                Ex.: --prefer "file:prefer.txt" 
         --avoid=WORDS           ROMs containing these words will be avoided (but not excluded).
                                 Ex.: --avoid "Virtual Console,GameCube"
                                 Ex.: --avoid "file:avoid.txt" 
