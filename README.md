@@ -104,16 +104,17 @@ better select the ROMs that should be part of the generated set, according to th
 Sorting happens with the following criteria:
 1. Good dumps
 2. Released ROMs (unless `--prefer-prereleases` is used)
-3. Non-avoided items
+3. Non-avoided items (if `--avoid` is used)
 4. Best region match (this can be switched with item #5 by using `--prioritize-languages`)
 5. Best language match (this can be switched with item #4 by using `--prioritize-languages`)
 6. Parent ROMs (if `--prefer-parents` is used)
 7. Input order (if `--input-order` is used)
-8. Latest revision (unless `--early-revisions` is used)
-9. Latest version (unless `--early-versions` is used)
-10. Latest sample
-11. Latest demo
-12. Latest beta
-13. Latest prototype
-14. Most languages supported
-15. Parent ROMs
+8. Preferred items (if `--prefer` is used)
+9. Latest revision (unless `--early-revisions` is used)
+10. Latest version (unless `--early-versions` is used)
+11. Latest sample
+12. Latest demo
+13. Latest beta
+14. Latest prototype
+15. Most languages supported
+16. Parent ROMs
