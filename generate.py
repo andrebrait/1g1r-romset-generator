@@ -828,6 +828,7 @@ def main(argv: List[str]):
                 break
             if use_hashes:
                 copied_files = set()
+                failed = set()
                 for entry_rom in entry.roms:
                     digest = entry_rom.sha1.lower()
                     rom_input_path = hash_index[digest]
@@ -854,18 +855,20 @@ def main(argv: List[str]):
                                 rom_output_path,
                                 move)
                             copied_files.add(rom_input_path)
-                    elif not NO_WARNING:
-                        if verbose:
-                            print(
-                                'WARNING [%s]: ROM file [%s] for candidate '
-                                '[%s] not found' %
-                                (game, entry_rom.name, entry.name),
-                                file=sys.stderr)
-                        else:
-                            print(
-                                'WARNING: ROM file [%s] for candidate [%s] '
-                                'not found' % (entry_rom.name, entry.name),
-                                file=sys.stderr)
+                    else:
+                        if not NO_WARNING and entry_rom.name not in failed:
+                            if verbose:
+                                print(
+                                    'WARNING [%s]: ROM file [%s] for candidate '
+                                    '[%s] not found' %
+                                    (game, entry_rom.name, entry.name),
+                                    file=sys.stderr)
+                            else:
+                                print(
+                                    'WARNING: ROM file [%s] for candidate [%s] '
+                                    'not found' % (entry_rom.name, entry.name),
+                                    file=sys.stderr)
+                        failed.add(entry_rom.name)
                 if copied_files:
                     break
                 elif not NO_WARNING and i == size - 1:
