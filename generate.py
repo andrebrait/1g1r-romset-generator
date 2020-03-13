@@ -831,8 +831,9 @@ def main(argv: List[str]):
                         rom_input_path = file
                         file = file_relative_to_input(file, input_dir)
                         if not output_dir:
-                           print(file)
-                           copied_files.add(rom_input_path)
+                           if rom_input_path not in copied_files:
+                               print(file)
+                               copied_files.add(rom_input_path)
                            continue
                         if os.path.sep in file:
                             rom_output_dir = os.path.join(
