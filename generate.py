@@ -704,7 +704,7 @@ def main(argv: List[str]):
     if use_hashes and input_dir:
         print(
             'Calculating file hashes for input directory [%s].\n'
-            'This can take a while...',
+            'This can take a while...' % input_dir,
             file=sys.stderr)
         hash_index = index_files(input_dir, dat_file)
 
