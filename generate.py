@@ -861,6 +861,11 @@ def main(argv: List[str]):
                                 file=sys.stderr)
                 if copied_files:
                     break
+                elif not NO_WARNING and i == size - 1:
+                    print(
+                        'WARNING: no eligible candidates for [%s] '
+                        'have been found!' % game,
+                        file=sys.stderr)
             elif input_dir:
                 file_name = add_extension(entry.name, file_extension)
                 full_path = os.path.join(input_dir, file_name)
