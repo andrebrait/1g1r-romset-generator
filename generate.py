@@ -828,9 +828,12 @@ def main(argv: List[str]):
                     digest = entry_rom.sha1.lower()
                     file = hash_index[digest]
                     if file:
-                        copied_files.add(file)
                         rom_input_path = file
                         file = file_relative_to_input(file, input_dir)
+                        if not output_dir:
+                           print(file)
+                           copied_files.add(rom_input_path)
+                           continue
                         if os.path.sep in file:
                             rom_output_dir = os.path.join(
                                 output_dir,
