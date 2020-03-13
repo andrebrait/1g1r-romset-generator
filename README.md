@@ -30,6 +30,7 @@ Options:
         -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
                                 Ex.: -o "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
+        --use-hashes            If set, ROM file hashes are going to be used to identify candidates
 
 # Filtering:
         --no-bios               Filter out BIOSes

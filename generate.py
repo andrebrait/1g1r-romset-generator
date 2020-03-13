@@ -1,9 +1,11 @@
 import getopt
+import hashlib
 import os
 import re
 import shutil
 import sys
 from typing import Optional, Match, List, Dict, Pattern, Any, Callable
+from zipfile import ZipFile, BadZipFile
 
 import datafile
 from datafile import rom
@@ -315,10 +317,11 @@ def parse_games(
         demo = parse_prerelease(demo_match)
         sample = parse_prerelease(sample_match)
         proto = parse_prerelease(proto_match)
-        is_prerelease = bool(beta_match
-                             or demo_match
-                             or sample_match
-                             or proto_match)
+        is_prerelease = bool(
+            beta_match
+            or demo_match
+            or sample_match
+            or proto_match)
         revision = parse_revision(game.name)
         version = parse_version(game.name)
         region_data = parse_region_data(game.name)
@@ -399,6 +402,45 @@ def language_value(
         for lang in languages])
 
 
+def index_files(
+        input_dir: str,
+        dat_file: str) -> Dict[str, str]:
+    result: Dict[str, str] = {}
+    root = datafile.parse(dat_file, silence=True)
+    for game in root.game:
+        for rom_entry in game.rom:
+            result[rom_entry.sha1.lower()] = ""
+    for root, dirs, files in os.walk(input_dir):
+        for file in files:
+            full_path = os.path.join(root, file)
+            if file.endswith('.zip'):
+                try:
+                    with ZipFile(full_path) as compressed_file:
+                        for internal_file in compressed_file.namelist():
+                            hasher = hashlib.sha1()
+                            hasher.update(compressed_file.read(internal_file))
+                            digest = hasher.hexdigest().lower()
+                            if digest in result:
+                                result[digest] = full_path
+                except BadZipFile as e:
+                    print(
+                        'Error while reading file [%s]: %s' % (full_path, e),
+                        file=sys.stderr)
+            else:
+                try:
+                    with open(full_path, 'rb') as uncompressed_file:
+                        hasher = hashlib.sha1()
+                        hasher.update(uncompressed_file.read())
+                        digest = hasher.hexdigest().lower()
+                        if digest in result and not result[digest]:
+                            result[digest] = full_path
+                except IOError as e:
+                    print(
+                        'Error while reading file [%s]: %s' % (full_path, e),
+                        file=sys.stderr)
+    return result
+
+
 def main(argv: List[str]):
     global NO_WARNING
     try:
@@ -422,6 +464,7 @@ def main(argv: List[str]):
             'early-versions',
             'input-order',
             'extension=',
+            'use-hashes',
             'input-dir=',
             'prefer=',
             'avoid=',
@@ -463,6 +506,7 @@ def main(argv: List[str]):
     revision_asc = False
     version_asc = False
     verbose = False
+    use_hashes = False
     input_order = False
     selected_regions: List[str] = []
     file_extension = ""
@@ -537,6 +581,7 @@ def main(argv: List[str]):
                 sys.exit(2)
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.path.extsep)
+        use_hashes |= opt == '--use-hashes'
         if opt == '--prefer':
             prefer_str = arg
         if opt == '--avoid':
@@ -569,6 +614,14 @@ def main(argv: List[str]):
         if debug:
             verbose = True
         move |= opt == '--move'
+    if file_extension and use_hashes:
+        print('extensions cannot be used with hashes', file=sys.stderr)
+        print_help()
+        sys.exit(2)
+    if not input_dir and use_hashes:
+        print('hashes can only be used with an input file', file=sys.stderr)
+        print_help()
+        sys.exit(2)
     if not dat_file:
         print('DAT file is required', file=sys.stderr)
         print_help()
@@ -646,6 +699,10 @@ def main(argv: List[str]):
         sys.exit(2)
 
     validate_dat(dat_file)
+
+    hash_index: Dict[str, str] = {}
+    if use_hashes and input_dir:
+        hash_index = index_files(input_dir, dat_file)
 
     parsed_games = parse_games(
         dat_file,
@@ -765,10 +822,47 @@ def main(argv: List[str]):
             entry = entries[i]
             if check_in_pattern_list(entry.name, exclude_after):
                 break
-            file_name = entry.name
-            if file_extension:
-                file_name = file_name + os.path.extsep + file_extension
-            if input_dir:
+            if use_hashes:
+                copied_files = set()
+                for entry_rom in entry.roms:
+                    digest = entry_rom.sha1.lower()
+                    file = hash_index[digest]
+                    if file:
+                        copied_files.add(file)
+                        rom_input_path = file
+                        file = file_relative_to_input(file, input_dir)
+                        if os.path.sep in file:
+                            rom_output_dir = os.path.join(
+                                output_dir,
+                                entry.name)
+                            os.makedirs(rom_output_dir, exist_ok=True)
+                        else:
+                            rom_output_dir = output_dir
+                        if rom_input_path not in copied_files:
+                            rom_output_path = os.path.join(
+                                rom_output_dir,
+                                entry_rom.name)
+                            transfer_file(
+                                rom_input_path,
+                                rom_output_path,
+                                move)
+                            copied_files.add(rom_input_path)
+                    elif not NO_WARNING:
+                        if verbose:
+                            print(
+                                'WARNING [%s]: ROM file [%s] for candidate '
+                                '[%s] not found' %
+                                (game, entry_rom.name, entry.name),
+                                file=sys.stderr)
+                        else:
+                            print(
+                                'WARNING: ROM file [%s] for candidate [%s] '
+                                'not found' % (entry_rom.name, entry.name),
+                                file=sys.stderr)
+                if copied_files:
+                    break
+            elif input_dir:
+                file_name = add_extension(entry.name, file_extension)
                 full_path = os.path.join(input_dir, file_name)
                 if os.path.isfile(full_path):
                     if output_dir:
@@ -778,15 +872,15 @@ def main(argv: List[str]):
                     break
                 elif os.path.isdir(full_path):
                     for entry_rom in entry.roms:
-                        rom_full_path = os.path.join(full_path, entry_rom.name)
-                        if os.path.isfile(rom_full_path):
+                        rom_input_path = os.path.join(full_path, entry_rom.name)
+                        if os.path.isfile(rom_input_path):
                             if output_dir:
                                 rom_output_dir = os.path.join(
                                     output_dir,
                                     file_name)
                                 os.makedirs(rom_output_dir, exist_ok=True)
                                 transfer_file(
-                                    rom_full_path,
+                                    rom_input_path,
                                     rom_output_dir,
                                     move)
                                 shutil.copystat(full_path, rom_output_dir)
@@ -822,8 +916,18 @@ def main(argv: List[str]):
                             'have been found!' % game,
                             file=sys.stderr)
             else:
-                print(file_name)
+                print(add_extension(entry.name, file_extension))
                 break
+
+
+def add_extension(file_name: str, file_extension: str):
+    if file_extension:
+        return file_name + os.path.extsep + file_extension
+    return file_name
+
+
+def file_relative_to_input(file, input_dir):
+    return file.replace(input_dir, '', count=1).lstrip(os.path.sep)
 
 
 def parse_list(
@@ -944,6 +1048,10 @@ def print_help():
         '\t--move\t\t\t'
         'If set, ROMs will be moved, instead of copied, '
         'to the output directory',
+        file=sys.stderr)
+    print(
+        '\t--use-hashes\t\t'
+        'If set, ROM file hashes are going to be used to identify candidates',
         file=sys.stderr)
     print('\n# Filtering:', file=sys.stderr)
     print(
