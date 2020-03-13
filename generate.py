@@ -702,6 +702,10 @@ def main(argv: List[str]):
 
     hash_index: Dict[str, str] = {}
     if use_hashes and input_dir:
+        print(
+            'Calculating file hashes for input directory [%s].\n'
+            'This can take a while...',
+            file=sys.stderr)
         hash_index = index_files(input_dir, dat_file)
 
     parsed_games = parse_games(
@@ -826,15 +830,14 @@ def main(argv: List[str]):
                 copied_files = set()
                 for entry_rom in entry.roms:
                     digest = entry_rom.sha1.lower()
-                    file = hash_index[digest]
-                    if file:
-                        rom_input_path = file
-                        file = file_relative_to_input(file, input_dir)
+                    rom_input_path = hash_index[digest]
+                    if rom_input_path:
+                        file = file_relative_to_input(rom_input_path, input_dir)
                         if not output_dir:
-                           if rom_input_path not in copied_files:
-                               print(file)
-                               copied_files.add(rom_input_path)
-                           continue
+                            if rom_input_path not in copied_files:
+                                print(file)
+                                copied_files.add(rom_input_path)
+                            continue
                         if os.path.sep in file:
                             rom_output_dir = os.path.join(
                                 output_dir,
@@ -929,14 +932,14 @@ def main(argv: List[str]):
                 break
 
 
-def add_extension(file_name: str, file_extension: str):
+def add_extension(file_name: str, file_extension: str) -> str:
     if file_extension:
         return file_name + os.path.extsep + file_extension
     return file_name
 
 
-def file_relative_to_input(file, input_dir):
-    return file.replace(input_dir, '', count=1).lstrip(os.path.sep)
+def file_relative_to_input(file: str, input_dir: str) -> str:
+    return file.replace(input_dir, '', 1).lstrip(os.path.sep)
 
 
 def parse_list(
