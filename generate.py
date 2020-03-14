@@ -4,7 +4,9 @@ import os
 import re
 import shutil
 import sys
-from typing import Optional, Match, List, Dict, Pattern, Any, Callable
+from io import BufferedIOBase
+from typing import Optional, Match, List, Dict, Pattern, Any, Callable, Union, \
+    BinaryIO
 from zipfile import ZipFile, BadZipFile
 
 import datafile
@@ -158,7 +160,7 @@ rev_regex = re.compile(r'\(Rev\s*([a-z0-9.]+)\)', re.IGNORECASE)
 version_regex = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
 languages_regex = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
 bad_regex = re.compile(re.escape('[b]'), re.IGNORECASE)
-zip_regex = re.compile(r'\.zip$', re.IGNORECASE)
+zip_regex = re.compile(re.escape(os.path.extsep) + r'zip$', re.IGNORECASE)
 
 
 def to_int_list(string: str, multiplier: int) -> List[int]:
@@ -414,41 +416,43 @@ def index_files(
     for root, dirs, files in os.walk(input_dir):
         for file in files:
             full_path = os.path.join(root, file)
-            if zip_regex.search(file):
+            if is_zip(file):
                 try:
                     with ZipFile(full_path) as compressed_file:
                         for name in compressed_file.namelist():
                             with compressed_file.open(name) as internal_file:
-                                hasher = hashlib.sha1()
-                                while True:
-                                    chunk = internal_file.read(4096)
-                                    if not chunk:
-                                        break
-                                    hasher.update(chunk)
-                                digest = hasher.hexdigest().lower()
+                                digest = compute_hash(internal_file)
                                 if digest in result:
                                     result[digest] = full_path
                 except BadZipFile as e:
                     print(
                         'Error while reading file [%s]: %s' % (full_path, e),
                         file=sys.stderr)
-            else:
-                try:
-                    with open(full_path, 'rb') as uncompressed_file:
-                        hasher = hashlib.sha1()
-                        while True:
-                            chunk = uncompressed_file.read(4096)
-                            if not chunk:
-                                break
-                            hasher.update(chunk)
-                        digest = hasher.hexdigest().lower()
-                        if digest in result and not result[digest]:
-                            result[digest] = full_path
-                except IOError as e:
-                    print(
-                        'Error while reading file [%s]: %s' % (full_path, e),
-                        file=sys.stderr)
+            try:
+                with open(full_path, 'rb') as uncompressed_file:
+                    digest = compute_hash(uncompressed_file)
+                    if digest in result and not result[digest]:
+                        result[digest] = full_path
+            except IOError as e:
+                print(
+                    'Error while reading file [%s]: %s' % (full_path, e),
+                    file=sys.stderr)
     return result
+
+
+def compute_hash(
+        internal_file: Union[BufferedIOBase, BinaryIO]) -> str:
+    hasher = hashlib.sha1()
+    while True:
+        chunk = internal_file.read(4096)
+        if not chunk:
+            break
+        hasher.update(chunk)
+    return hasher.hexdigest().lower()
+
+
+def is_zip(file: str) -> bool:
+    return bool(zip_regex.search(file))
 
 
 def main(argv: List[str]):
@@ -838,27 +842,34 @@ def main(argv: List[str]):
                 break
             if use_hashes:
                 copied_files = set()
+                num_roms = len(entry.roms)
                 for entry_rom in entry.roms:
                     digest = entry_rom.sha1.lower()
                     rom_input_path = hash_index[digest]
                     if rom_input_path:
                         file = file_relative_to_input(rom_input_path, input_dir)
+                        is_zip_file = is_zip(rom_input_path)
                         if not output_dir:
                             if rom_input_path not in copied_files:
                                 print(file)
                                 copied_files.add(rom_input_path)
-                            continue
-                        if os.path.sep in file and not zip_regex.search(file):
-                            rom_output_dir = os.path.join(
-                                output_dir,
-                                entry.name)
-                            os.makedirs(rom_output_dir, exist_ok=True)
-                        else:
-                            rom_output_dir = output_dir
-                        if rom_input_path not in copied_files:
-                            rom_output_path = os.path.join(
-                                rom_output_dir,
-                                entry_rom.name)
+                        elif rom_input_path not in copied_files:
+                            if not is_zip_file \
+                                    and (num_roms > 1 or os.path.sep in file):
+                                rom_output_dir = os.path.join(
+                                    output_dir,
+                                    entry.name)
+                                os.makedirs(rom_output_dir, exist_ok=True)
+                            else:
+                                rom_output_dir = output_dir
+                            if is_zip_file:
+                                rom_output_path = os.path.join(
+                                    rom_output_dir,
+                                    add_extension(entry.name, 'zip'))
+                            else:
+                                rom_output_path = os.path.join(
+                                    rom_output_dir,
+                                    entry_rom.name)
                             transfer_file(
                                 rom_input_path,
                                 rom_output_path,
