@@ -158,6 +158,7 @@ rev_regex = re.compile(r'\(Rev\s*([a-z0-9.]+)\)', re.IGNORECASE)
 version_regex = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
 languages_regex = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
 bad_regex = re.compile(re.escape('[b]'), re.IGNORECASE)
+zip_regex = re.compile(r'\.zip$', re.IGNORECASE)
 
 
 def to_int_list(string: str, multiplier: int) -> List[int]:
@@ -413,15 +414,20 @@ def index_files(
     for root, dirs, files in os.walk(input_dir):
         for file in files:
             full_path = os.path.join(root, file)
-            if file.endswith('.zip'):
+            if zip_regex.search(file):
                 try:
                     with ZipFile(full_path) as compressed_file:
-                        for internal_file in compressed_file.namelist():
-                            hasher = hashlib.sha1()
-                            hasher.update(compressed_file.read(internal_file))
-                            digest = hasher.hexdigest().lower()
-                            if digest in result:
-                                result[digest] = full_path
+                        for name in compressed_file.namelist():
+                            with compressed_file.open(name) as internal_file:
+                                hasher = hashlib.sha1()
+                                while True:
+                                    chunk = internal_file.read(4096)
+                                    if not chunk:
+                                        break
+                                    hasher.update(chunk)
+                                digest = hasher.hexdigest().lower()
+                                if digest in result:
+                                    result[digest] = full_path
                 except BadZipFile as e:
                     print(
                         'Error while reading file [%s]: %s' % (full_path, e),
@@ -430,7 +436,11 @@ def index_files(
                 try:
                     with open(full_path, 'rb') as uncompressed_file:
                         hasher = hashlib.sha1()
-                        hasher.update(uncompressed_file.read())
+                        while True:
+                            chunk = uncompressed_file.read(4096)
+                            if not chunk:
+                                break
+                            hasher.update(chunk)
                         digest = hasher.hexdigest().lower()
                         if digest in result and not result[digest]:
                             result[digest] = full_path
@@ -828,7 +838,6 @@ def main(argv: List[str]):
                 break
             if use_hashes:
                 copied_files = set()
-                failed = set()
                 for entry_rom in entry.roms:
                     digest = entry_rom.sha1.lower()
                     rom_input_path = hash_index[digest]
@@ -839,7 +848,7 @@ def main(argv: List[str]):
                                 print(file)
                                 copied_files.add(rom_input_path)
                             continue
-                        if os.path.sep in file:
+                        if os.path.sep in file and not zip_regex.search(file):
                             rom_output_dir = os.path.join(
                                 output_dir,
                                 entry.name)
@@ -856,7 +865,7 @@ def main(argv: List[str]):
                                 move)
                             copied_files.add(rom_input_path)
                     else:
-                        if not NO_WARNING and entry_rom.name not in failed:
+                        if not NO_WARNING:
                             if verbose:
                                 print(
                                     'WARNING [%s]: ROM file [%s] for candidate '
@@ -868,7 +877,6 @@ def main(argv: List[str]):
                                     'WARNING: ROM file [%s] for candidate [%s] '
                                     'not found' % (entry_rom.name, entry.name),
                                     file=sys.stderr)
-                        failed.add(entry_rom.name)
                 if copied_files:
                     break
                 elif not NO_WARNING and i == size - 1:
