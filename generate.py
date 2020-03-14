@@ -405,6 +405,24 @@ def language_value(
         for lang in languages])
 
 
+# Original source code: https://stackoverflow.com/a/34482761/2921256
+def progressbar(it, prefix="", size=60, file=sys.stdout):
+    count = len(it)
+
+    def show(j):
+        x = int(size * j / count)
+        file.write(
+            "%s[%s%s] %i/%i\r" % (prefix, "#" * x, "." * (size - x), j, count))
+        file.flush()
+
+    show(0)
+    for i, item in enumerate(it):
+        yield item
+        show(i + 1)
+    file.write("\n")
+    file.flush()
+
+
 def index_files(
         input_dir: str,
         dat_file: str) -> Dict[str, str]:
@@ -413,30 +431,32 @@ def index_files(
     for game in root.game:
         for rom_entry in game.rom:
             result[rom_entry.sha1.lower()] = ""
+    full_paths = []
     for root, dirs, files in os.walk(input_dir):
         for file in files:
-            full_path = os.path.join(root, file)
-            if is_zip(file):
-                try:
-                    with ZipFile(full_path) as compressed_file:
-                        for name in compressed_file.namelist():
-                            with compressed_file.open(name) as internal_file:
-                                digest = compute_hash(internal_file)
-                                if digest in result:
-                                    result[digest] = full_path
-                except BadZipFile as e:
-                    print(
-                        'Error while reading file [%s]: %s' % (full_path, e),
-                        file=sys.stderr)
+            full_paths.append(os.path.join(root, file))
+    for full_path in progressbar(full_paths, file=sys.stderr):
+        if is_zip(full_path):
             try:
-                with open(full_path, 'rb') as uncompressed_file:
-                    digest = compute_hash(uncompressed_file)
-                    if digest in result and not result[digest]:
-                        result[digest] = full_path
-            except IOError as e:
+                with ZipFile(full_path) as compressed_file:
+                    for name in compressed_file.namelist():
+                        with compressed_file.open(name) as internal_file:
+                            digest = compute_hash(internal_file)
+                            if digest in result:
+                                result[digest] = full_path
+            except BadZipFile as e:
                 print(
                     'Error while reading file [%s]: %s' % (full_path, e),
                     file=sys.stderr)
+        try:
+            with open(full_path, 'rb') as uncompressed_file:
+                digest = compute_hash(uncompressed_file)
+                if digest in result and not result[digest]:
+                    result[digest] = full_path
+        except IOError as e:
+            print(
+                'Error while reading file [%s]: %s' % (full_path, e),
+                file=sys.stderr)
     return result
 
 
@@ -1246,4 +1266,7 @@ def print_help():
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except KeyboardInterrupt:
+        print('')
