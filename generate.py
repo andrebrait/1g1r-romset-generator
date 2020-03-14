@@ -12,6 +12,8 @@ from zipfile import ZipFile, BadZipFile
 import datafile
 from datafile import rom
 
+CHUNK_SIZE = 1024 * 1024  # 1 MB
+
 FILE_PREFIX = 'file:'
 
 UNSELECTED = 10000
@@ -256,16 +258,33 @@ def is_present(code: str, region_data: List[RegionData]) -> bool:
     return False
 
 
-def validate_dat(file: str) -> None:
+def validate_dat(file: str, use_hashes: bool) -> None:
     root = datafile.parse(file, silence=True)
     has_cloneof = False
+    lacks_sha1 = False
+    offending_entry = ''
     for game in root.game:
         if game.cloneof:
             has_cloneof = True
             break
+    for game in root.game:
+        for game_rom in game.rom:
+            if not game_rom.sha1:
+                lacks_sha1 = True
+                offending_entry = game.name
+                break
+    if use_hashes and lacks_sha1:
+        print(
+            'ERROR: Cannot use hash information because DAT lacks SHA1 digests '
+            'for [%s].' % offending_entry)
+        sys.exit(1)
     if not has_cloneof:
         print('This DAT *seems* to be a Standard DAT')
         print('A Parent/Clone XML DAT is required to generate a 1G1R ROM set')
+        if use_hashes:
+            print(
+                'If you are using this to rename files based on their hashes, '
+                'a Standard DAT is enough')
         answer = input('Do you want to continue anyway? (y/n)\n')
         if answer.strip() not in ('y', 'Y'):
             sys.exit()
@@ -467,7 +486,7 @@ def compute_hash(
         internal_file: Union[BufferedIOBase, BinaryIO]) -> str:
     hasher = hashlib.sha1()
     while True:
-        chunk = internal_file.read(4096)
+        chunk = internal_file.read(CHUNK_SIZE)
         if not chunk:
             break
         hasher.update(chunk)
@@ -735,7 +754,7 @@ def main(argv: List[str]):
         print_help()
         sys.exit(2)
 
-    validate_dat(dat_file)
+    validate_dat(dat_file, use_hashes)
 
     hash_index: Dict[str, str] = {}
     if use_hashes and input_dir:
