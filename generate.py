@@ -435,7 +435,10 @@ def index_files(
     for root, dirs, files in os.walk(input_dir):
         for file in files:
             full_paths.append(os.path.join(root, file))
-    for full_path in progressbar(full_paths, file=sys.stderr):
+    for full_path in progressbar(
+            full_paths,
+            prefix='Calculating hashes ',
+            file=sys.stderr):
         if is_zip(full_path):
             try:
                 with ZipFile(full_path) as compressed_file:
@@ -736,10 +739,6 @@ def main(argv: List[str]):
 
     hash_index: Dict[str, str] = {}
     if use_hashes and input_dir:
-        print(
-            'Calculating file hashes for input directory [%s].\n'
-            'This can take a while...' % input_dir,
-            file=sys.stderr)
         hash_index = index_files(input_dir, dat_file)
 
     parsed_games = parse_games(
