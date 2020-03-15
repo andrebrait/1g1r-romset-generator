@@ -15,9 +15,9 @@ from zipfile import ZipFile, BadZipFile
 import datafile
 from datafile import rom
 
-THREADS = 4
+THREADS: Optional[int] = None
 
-CHUNK_SIZE = 1048576  # 1 MB
+CHUNK_SIZE = 33554432  # 32 MB
 
 FILE_PREFIX = 'file:'
 
@@ -1160,14 +1160,14 @@ def print_help():
         'When using hashes, sets the number of I/O threads to be used to read '
         'files'
         '\n\t\t\t\t'
-        'Default: 4',
+        'Default: default Python thread pool size',
         file=sys.stderr)
     print(
         '\t--chunk-size\t\t'
         'When using hashes, sets the chunk size for buffered I/O operations '
         '(in bytes)'
         '\n\t\t\t\t'
-        'Default: 1048576 bytes (1 MB)',
+        'Default: 33554432 bytes (32 MB)',
         file=sys.stderr)
     print('\n# Filtering:', file=sys.stderr)
     print(

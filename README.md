@@ -32,9 +32,9 @@ Options:
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
         --use-hashes            If set, ROM file hashes are going to be used to identify candidates
         --threads=THREADS       When using hashes, sets the number of I/O threads to be used to read files
-                                Default: 4
+                                Default: default Python thread pool size
         --chunk-size            When using hashes, sets the chunk size for buffered I/O operations (in bytes)
-                                Default: 1048576 bytes (1 MB)
+                                Default: 33554432 bytes (32 MB)
 
 # Filtering:
         --no-bios               Filter out BIOSes
