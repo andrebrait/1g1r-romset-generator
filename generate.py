@@ -466,17 +466,16 @@ def index_files(
     for root, dirs, files in os.walk(input_dir):
         for file in files:
             full_paths.append(os.path.join(root, file))
-    lock = Lock()
-    with ThreadPoolExecutor(THREADS) as e:
-        for intermediate_result in progressbar(
-                e.map(process_file, full_paths),
+    with ThreadPoolExecutor(THREADS) as pool:
+        intermediate_results = [ir for ir in progressbar(
+                pool.map(process_file, full_paths),
                 prefix='Calculating hashes ',
                 file=sys.stderr,
-                count=len(full_paths)):
-            for key, value in intermediate_result.items():
-                with lock:
-                    if key in result and not is_zip(result[key]):
-                        result[key] = value
+                count=len(full_paths))]
+    for intermediate_result in intermediate_results:
+        for key, value in intermediate_result.items():
+            if key in result and not is_zip(result[key]):
+                result[key] = value
     return result
 
 
