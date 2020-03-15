@@ -4,7 +4,10 @@ import os
 import re
 import shutil
 import sys
+from concurrent.futures.thread import ThreadPoolExecutor
 from io import BufferedIOBase
+from threading import Lock
+from threading import local
 from typing import Optional, Match, List, Dict, Pattern, Any, Callable, Union, \
     BinaryIO
 from zipfile import ZipFile, BadZipFile
@@ -12,7 +15,9 @@ from zipfile import ZipFile, BadZipFile
 import datafile
 from datafile import rom
 
-CHUNK_SIZE = 1024 * 1024  # 1 MB
+THREADS = 4
+
+CHUNK_SIZE = 1048576  # 1 MB
 
 FILE_PREFIX = 'file:'
 
@@ -425,19 +430,26 @@ def language_value(
 
 
 # Original source code: https://stackoverflow.com/a/34482761/2921256
-def progressbar(it, prefix="", size=60, file=sys.stdout):
-    count = len(it)
+def progressbar(it, prefix="", size=60, file=sys.stdout, count=-1):
+    if count < 0:
+        count = len(it)
 
-    def show(j):
-        x = int(size * j / count)
+    curr = 0
+    curr_local = local()
+    lock = Lock()
+
+    def show(x: int = 0, j: int = 0):
         file.write(
             "%s[%s%s] %i/%i\r" % (prefix, "#" * x, "." * (size - x), j, count))
         file.flush()
 
-    show(0)
-    for i, item in enumerate(it):
+    show()
+    for item in it:
         yield item
-        show(i + 1)
+        with lock:
+            curr += 1
+            curr_local.curr = curr
+        show(x=int(size * curr_local.curr / count), j=curr_local.curr)
     file.write("\n")
     file.flush()
 
@@ -454,31 +466,42 @@ def index_files(
     for root, dirs, files in os.walk(input_dir):
         for file in files:
             full_paths.append(os.path.join(root, file))
-    for full_path in progressbar(
-            full_paths,
-            prefix='Calculating hashes ',
-            file=sys.stderr):
-        if is_zip(full_path):
-            try:
-                with ZipFile(full_path) as compressed_file:
-                    for name in compressed_file.namelist():
-                        with compressed_file.open(name) as internal_file:
-                            digest = compute_hash(internal_file)
-                            if digest in result:
-                                result[digest] = full_path
-            except BadZipFile as e:
-                print(
-                    'Error while reading file [%s]: %s' % (full_path, e),
-                    file=sys.stderr)
+    lock = Lock()
+    with ThreadPoolExecutor(THREADS) as e:
+        for intermediate_result in progressbar(
+                e.map(process_file, full_paths),
+                prefix='Calculating hashes ',
+                file=sys.stderr,
+                count=len(full_paths)):
+            for key, value in intermediate_result.items():
+                with lock:
+                    if key in result and not is_zip(result[key]):
+                        result[key] = value
+    return result
+
+
+def process_file(full_path: str) -> Dict[str, str]:
+    result: Dict[str, str] = {}
+    if is_zip(full_path):
         try:
-            with open(full_path, 'rb') as uncompressed_file:
-                digest = compute_hash(uncompressed_file)
-                if digest in result and not result[digest]:
-                    result[digest] = full_path
-        except IOError as e:
+            with ZipFile(full_path) as compressed_file:
+                for name in compressed_file.namelist():
+                    with compressed_file.open(name) as internal_file:
+                        digest = compute_hash(internal_file)
+                        result[digest] = full_path
+        except BadZipFile as e:
             print(
                 'Error while reading file [%s]: %s' % (full_path, e),
                 file=sys.stderr)
+    try:
+        with open(full_path, 'rb') as uncompressed_file:
+            digest = compute_hash(uncompressed_file)
+            if digest not in result or is_zip(result[digest]):
+                result[digest] = full_path
+    except IOError as e:
+        print(
+            'Error while reading file [%s]: %s' % (full_path, e),
+            file=sys.stderr)
     return result
 
 
@@ -539,7 +562,9 @@ def main(argv: List[str]):
             'all-regions-with-lang',
             'debug',
             'move',
-            'no-warning'
+            'no-warning',
+            'chunk-size=',
+            'threads='
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -670,6 +695,12 @@ def main(argv: List[str]):
         if debug:
             verbose = True
         move |= opt == '--move'
+        if opt == '--chunk-size':
+            global CHUNK_SIZE
+            CHUNK_SIZE = int(arg)
+        if opt == '--threads':
+            global THREADS
+            THREADS = int(arg)
     if file_extension and use_hashes:
         print('extensions cannot be used with hashes', file=sys.stderr)
         print_help()
@@ -1124,6 +1155,20 @@ def print_help():
     print(
         '\t--use-hashes\t\t'
         'If set, ROM file hashes are going to be used to identify candidates',
+        file=sys.stderr)
+    print(
+        '\t--threads=THREADS\t'
+        'When using hashes, sets the number of I/O threads to be used to read '
+        'files'
+        '\n\t\t\t\t'
+        'Default: 4',
+        file=sys.stderr)
+    print(
+        '\t--chunk-size\t\t'
+        'When using hashes, sets the chunk size for buffered I/O operations '
+        '(in bytes)'
+        '\n\t\t\t\t'
+        'Default: 1048576 bytes (1 MB)',
         file=sys.stderr)
     print('\n# Filtering:', file=sys.stderr)
     print(
