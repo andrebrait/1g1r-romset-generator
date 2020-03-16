@@ -7,13 +7,18 @@ import sys
 from concurrent.futures.thread import ThreadPoolExecutor
 from io import BufferedIOBase
 from threading import Lock
-from threading import local
 from typing import Optional, Match, List, Dict, Pattern, Any, Callable, Union, \
     BinaryIO
 from zipfile import ZipFile, BadZipFile
 
 import datafile
 from datafile import rom
+
+QUIT = False
+
+FOUND_PREFIX = 'Found: '
+HASHES_PREFIX = 'Calculating hashes '
+TRIM_PREFIX = '(...)'
 
 THREADS: Optional[int] = None
 
@@ -429,29 +434,7 @@ def language_value(
         for lang in languages])
 
 
-# Original source code: https://stackoverflow.com/a/34482761/2921256
-def progressbar(it, prefix="", size=60, file=sys.stdout, count=-1):
-    if count < 0:
-        count = len(it)
-
-    curr = 0
-    curr_local = local()
-    lock = Lock()
-
-    def show(x: int = 0, j: int = 0):
-        file.write(
-            "%s[%s%s] %i/%i\r" % (prefix, "#" * x, "." * (size - x), j, count))
-        file.flush()
-
-    show()
-    for item in it:
-        yield item
-        with lock:
-            curr += 1
-            curr_local.curr = curr
-        show(x=int(size * curr_local.curr / count), j=curr_local.curr)
-    file.write("\n")
-    file.flush()
+CURR = 0
 
 
 def index_files(
@@ -463,20 +446,85 @@ def index_files(
         for rom_entry in game.rom:
             result[rom_entry.sha1.lower()] = ""
     full_paths = []
+    print('Scanning directory: %s' % input_dir, file=sys.stderr)
     for root, dirs, files in os.walk(input_dir):
         for file in files:
-            full_paths.append(os.path.join(root, file))
+            full_path = os.path.join(root, file)
+            for_print = '%s%s' % (
+                FOUND_PREFIX,
+                trim_to(full_path, available_columns(FOUND_PREFIX)))
+            print(
+                '%s%s' % (
+                    for_print,
+                    ' ' * available_columns(for_print)),
+                end='\r',
+                file=sys.stderr)
+            full_paths.append(full_path)
+    for_print = '%s%i files' % (FOUND_PREFIX, len(full_paths))
+    print(
+        '%s%s' % (
+            for_print,
+            ' ' * available_columns(for_print)),
+        file=sys.stderr)
+
+    count = len(full_paths)
+    lock = Lock()
+
+    def print_progressbar(item=None, prefix='', size: int = 60) -> None:
+        j = CURR
+        x = int(size * CURR / count)
+        for_print_i = "%s[%s%s] %i/%i" % (
+            prefix,
+            "#" * x,
+            "." * (size - x),
+            j,
+            count)
+        if item is not None:
+            if item:
+                for_print_i = "%s: %s" % (
+                    for_print_i,
+                    trim_to(item, max(0, available_columns(for_print_i) - 2)))
+            for_print_i = "%s%s" % (
+                for_print_i,
+                ' ' * available_columns(for_print_i))
+        print(
+            for_print_i,
+            end='\r',
+            file=sys.stderr)
+
+    def process_with_progress(path: str) -> Dict[str, str]:
+        if QUIT:
+            return {}
+        print_progressbar(path, prefix=HASHES_PREFIX)
+        this_result = process_file(path)
+        if QUIT:
+            return {}
+        with lock:
+            global CURR
+            CURR += 1
+            print_progressbar(path, prefix=HASHES_PREFIX)
+        return this_result
+
     with ThreadPoolExecutor(THREADS) as pool:
-        intermediate_results = [ir for ir in progressbar(
-                pool.map(process_file, full_paths),
-                prefix='Calculating hashes ',
-                file=sys.stderr,
-                count=len(full_paths))]
+        intermediate_results = pool.map(process_with_progress, full_paths)
+    print_progressbar('', prefix=HASHES_PREFIX)
+    print('', file=sys.stderr)
     for intermediate_result in intermediate_results:
         for key, value in intermediate_result.items():
             if key in result and not is_zip(result[key]):
                 result[key] = value
     return result
+
+
+def available_columns(current_text: str) -> int:
+    term_size = shutil.get_terminal_size((80, 20))
+    return max(0, term_size.columns - len(current_text))
+
+
+def trim_to(text: str, n: int) -> str:
+    if len(text) > n:
+        return '%s%s' % (TRIM_PREFIX, text[-(n - len(TRIM_PREFIX)):])
+    return text
 
 
 def process_file(full_path: str) -> Dict[str, str]:
@@ -568,7 +616,7 @@ def main(argv: List[str]):
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
 
     dat_file = ""
     filter_bios = False
@@ -625,11 +673,11 @@ def main(argv: List[str]):
                         'language-weight must be a positive integer',
                         file=sys.stderr)
                     print_help()
-                    sys.exit(2)
+                    sys.exit(1)
             except ValueError:
                 print('invalid value for language-weight', file=sys.stderr)
                 print_help()
-                sys.exit(2)
+                sys.exit(1)
         prioritize_languages |= opt == '--prioritize-languages'
         filter_bios |= opt in ('--no-bios', '--no-all')
         filter_program |= opt in ('--no-program', '--no-all')
@@ -658,7 +706,7 @@ def main(argv: List[str]):
             if not os.path.isfile(dat_file):
                 print('invalid DAT file: %s' % dat_file, file=sys.stderr)
                 print_help()
-                sys.exit(2)
+                sys.exit(1)
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.path.extsep)
         use_hashes |= opt == '--use-hashes'
@@ -677,7 +725,7 @@ def main(argv: List[str]):
                     'invalid input directory: %s' % input_dir,
                     file=sys.stderr)
                 print_help()
-                sys.exit(2)
+                sys.exit(1)
         if opt in ('-o', '--output-dir'):
             output_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(output_dir):
@@ -688,7 +736,7 @@ def main(argv: List[str]):
                         'invalid output DIR: %s' % output_dir,
                         file=sys.stderr)
                     print_help()
-                    sys.exit(2)
+                    sys.exit(1)
         debug |= opt == '--debug'
         NO_WARNING |= opt == '--no-warning'
         if debug:
@@ -703,86 +751,86 @@ def main(argv: List[str]):
     if file_extension and use_hashes:
         print('extensions cannot be used with hashes', file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if not input_dir and use_hashes:
         print('hashes can only be used with an input file', file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if not dat_file:
         print('DAT file is required', file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if not selected_regions:
         print('invalid region selection', file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if (revision_asc or version_asc) and input_order:
         print(
             'early-revisions and early-versions are mutually exclusive '
             'with input-order',
             file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if (revision_asc or version_asc) and prefer_parents:
         print(
             'early-revisions and early-versions are mutually exclusive '
             'with prefer-parents',
             file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if prefer_parents and input_order:
         print(
             'prefer-parents is mutually exclusive with input-order',
             file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if output_dir and not input_dir:
         print('output-dir requires an input-dir', file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if ignore_case and not prefer_str and not avoid_str and not exclude_str:
         print(
             "ignore-case only works if there's a prefer, "
             "avoid or exclude list too",
             file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if regex and not prefer_str and not avoid_str and not exclude_str:
         print(
             "regex only works if there's a prefer, avoid or exclude list too",
             file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     if all_regions and all_regions_with_lang:
         print(
             'all-regions is mutually exclusive with all-regions-with-lang',
             file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit()
     try:
         prefer = parse_list(prefer_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
         print('invalid prefer list: %s' % e, file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     try:
         avoid = parse_list(avoid_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
         print('invalid avoid list: %s' % e, file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     try:
         exclude = parse_list(exclude_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
         print('invalid exclude list: %s' % e, file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
     try:
         exclude_after = parse_list(exclude_after_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
         print('invalid exclude-after list: %s' % e, file=sys.stderr)
         print_help()
-        sys.exit(2)
+        sys.exit(1)
 
     validate_dat(dat_file, use_hashes)
 
@@ -1331,4 +1379,5 @@ if __name__ == '__main__':
     try:
         main(sys.argv[1:])
     except KeyboardInterrupt:
-        print('')
+        QUIT = True
+        sys.exit('')
