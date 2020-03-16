@@ -467,42 +467,43 @@ def index_files(
             ' ' * available_columns(for_print)),
         file=sys.stderr)
 
-    count = len(full_paths)
-    lock = Lock()
-    size = 60
+    if full_paths:
+        count = len(full_paths)
+        lock = Lock()
+        size = 60
 
-    def print_progressbar() -> None:
-        j = CURR
-        x = int(size * j / count)
-        print(
-            'Calculating hashes [%s%s] %i/%i' % (
-                '#' * x,
-                '.' * (size - x),
-                j,
-                count),
-            end='\r',
-            file=PROGRESSBAR_FILE)
+        def print_progressbar() -> None:
+            j = CURR
+            x = int(size * j / count)
+            print(
+                'Calculating hashes [%s%s] %i/%i' % (
+                    '#' * x,
+                    '.' * (size - x),
+                    j,
+                    count),
+                end='\r',
+                file=PROGRESSBAR_FILE)
 
-    def process_with_progress(path: str) -> Dict[str, str]:
-        if QUIT:
-            return {}
-        this_result = process_file(path)
-        if QUIT:
-            return {}
-        with lock:
-            global CURR
-            CURR += 1
-            print_progressbar()
-        return this_result
+        def process_with_progress(path: str) -> Dict[str, str]:
+            if QUIT:
+                return {}
+            this_result = process_file(path)
+            if QUIT:
+                return {}
+            with lock:
+                global CURR
+                CURR += 1
+                print_progressbar()
+            return this_result
 
-    print_progressbar()
-    with ThreadPoolExecutor(THREADS) as pool:
-        intermediate_results = pool.map(process_with_progress, full_paths)
-    print('', file=PROGRESSBAR_FILE)
-    for intermediate_result in intermediate_results:
-        for key, value in intermediate_result.items():
-            if key in result and not is_zip(result[key]):
-                result[key] = value
+        print_progressbar()
+        with ThreadPoolExecutor(THREADS) as pool:
+            intermediate_results = pool.map(process_with_progress, full_paths)
+        print('', file=PROGRESSBAR_FILE)
+        for intermediate_result in intermediate_results:
+            for key, value in intermediate_result.items():
+                if key in result and not is_zip(result[key]):
+                    result[key] = value
     return result
 
 
