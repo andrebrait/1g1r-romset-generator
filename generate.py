@@ -15,9 +15,9 @@ import datafile
 from datafile import rom
 
 QUIT = False
+PROGRESSBAR_FILE = sys.stderr
 
 FOUND_PREFIX = 'Found: '
-HASHES_PREFIX = 'Calculating hashes '
 TRIM_PREFIX = '(...)'
 
 THREADS: Optional[int] = None
@@ -469,46 +469,36 @@ def index_files(
 
     count = len(full_paths)
     lock = Lock()
+    size = 60
 
-    def print_progressbar(item=None, prefix='', size: int = 60) -> None:
+    def print_progressbar() -> None:
         j = CURR
-        x = int(size * CURR / count)
-        for_print_i = "%s[%s%s] %i/%i" % (
-            prefix,
-            "#" * x,
-            "." * (size - x),
-            j,
-            count)
-        if item is not None:
-            if item:
-                for_print_i = "%s: %s" % (
-                    for_print_i,
-                    trim_to(item, max(0, available_columns(for_print_i) - 2)))
-            for_print_i = "%s%s" % (
-                for_print_i,
-                ' ' * available_columns(for_print_i))
+        x = int(size * j / count)
         print(
-            for_print_i,
+            'Calculating hashes [%s%s] %i/%i' % (
+                '#' * x,
+                '.' * (size - x),
+                j,
+                count),
             end='\r',
-            file=sys.stderr)
+            file=PROGRESSBAR_FILE)
 
     def process_with_progress(path: str) -> Dict[str, str]:
         if QUIT:
             return {}
-        print_progressbar(path, prefix=HASHES_PREFIX)
         this_result = process_file(path)
         if QUIT:
             return {}
         with lock:
             global CURR
             CURR += 1
-            print_progressbar(path, prefix=HASHES_PREFIX)
+            print_progressbar()
         return this_result
 
+    print_progressbar()
     with ThreadPoolExecutor(THREADS) as pool:
         intermediate_results = pool.map(process_with_progress, full_paths)
-    print_progressbar('', prefix=HASHES_PREFIX)
-    print('', file=sys.stderr)
+    print('', file=PROGRESSBAR_FILE)
     for intermediate_result in intermediate_results:
         for key, value in intermediate_result.items():
             if key in result and not is_zip(result[key]):
@@ -1380,4 +1370,5 @@ if __name__ == '__main__':
         main(sys.argv[1:])
     except KeyboardInterrupt:
         QUIT = True
+        PROGRESSBAR_FILE = open(os.devnull, 'w')
         sys.exit('')
