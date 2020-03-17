@@ -6,19 +6,20 @@ import shutil
 import sys
 from concurrent.futures.thread import ThreadPoolExecutor
 from io import BufferedIOBase
-from threading import Lock
-from typing import Optional, Match, List, Dict, Pattern, Any, Callable, Union, \
+from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
     BinaryIO
 from zipfile import ZipFile, BadZipFile
 
 import datafile
-from datafile import rom
+from classes import GameEntry, Score, RegionData, ProgressBar, \
+    GameEntryHelper, GameEntryKeyGenerator, FileData, FileDataUtils
+from utils import get_index, check_in_pattern_list, to_int_list, add_padding, \
+    get_or_default, available_columns, trim_to, is_valid
 
 QUIT = False
-PROGRESSBAR_FILE = sys.stderr
+PROGRESSBAR: Optional[ProgressBar] = None
 
 FOUND_PREFIX = 'Found: '
-TRIM_PREFIX = '(...)'
 
 THREADS: Optional[int] = None
 
@@ -32,18 +33,6 @@ NOT_PRERELEASE = "Z"
 AVOIDED_ROM_BASE = 1000
 
 NO_WARNING: bool = False
-
-
-class RegionData:
-    def __init__(
-            self,
-            code: str,
-            pattern: Optional[Pattern[str]],
-            languages: List[str]):
-        self.code = code
-        self.pattern = pattern
-        self.languages = languages
-
 
 COUNTRY_REGION_CORRELATION = [
     # Language needs checking
@@ -77,86 +66,6 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh'])
 ]
 
-
-class Score:
-    def __init__(
-            self,
-            region: int,
-            languages: int,
-            revision: List[int],
-            version: List[int],
-            sample: List[int],
-            demo: List[int],
-            beta: List[int],
-            proto: List[int]):
-        self.region = region
-        self.languages = languages
-        self.revision = revision
-        self.version = version
-        self.sample = sample
-        self.demo = demo
-        self.beta = beta
-        self.proto = proto
-
-    def __repr__(self):
-        return str(self.__dict__)
-
-
-class GameEntry:
-    def __init__(
-            self,
-            is_bad: bool,
-            is_prerelease: bool,
-            region: str,
-            languages: List[str],
-            input_index: int,
-            revision: str,
-            version: str,
-            sample: str,
-            demo: str,
-            beta: str,
-            proto: str,
-            is_parent: bool,
-            name: str,
-            roms: List[rom]):
-        self.is_bad = is_bad
-        self.is_prerelease = is_prerelease
-        self.region = region
-        self.languages = languages
-        self.input_index = input_index
-        self.revision = revision
-        self.version = version
-        self.sample = sample
-        self.demo = demo
-        self.beta = beta
-        self.proto = proto
-        self.is_parent = is_parent
-        self.name = name
-        self.roms = roms
-        self.score: Optional[Score] = None
-
-    def __repr__(self):
-        return str(self.__dict__)
-
-    def set_revision(self, revision: str) -> None:
-        self.revision = revision
-
-    def set_version(self, version: str) -> None:
-        self.version = version
-
-    def set_sample(self, sample: str) -> None:
-        self.sample = sample
-
-    def set_demo(self, demo: str) -> None:
-        self.demo = demo
-
-    def set_beta(self, beta: str) -> None:
-        self.beta = beta
-
-    def set_proto(self, proto: str) -> None:
-        self.proto = proto
-
-
 sections_regex = re.compile(r'\(([^()]+)\)')
 bios_regex = re.compile(re.escape('[BIOS]'), re.IGNORECASE)
 program_regex = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
@@ -173,31 +82,6 @@ version_regex = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
 languages_regex = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
 bad_regex = re.compile(re.escape('[b]'), re.IGNORECASE)
 zip_regex = re.compile(re.escape(os.path.extsep) + r'zip$', re.IGNORECASE)
-
-
-def to_int_list(string: str, multiplier: int) -> List[int]:
-    return [multiplier * ord(x) for x in string]
-
-
-def get(ls: List[int], index: int) -> int:
-    return ls[index] if index < len(ls) else 0
-
-
-def add_padding(strings: List[str]) -> List[str]:
-    parts_list = [s.split('.') for s in strings]
-    lengths = [[len(part) for part in parts] for parts in parts_list]
-    max_parts = max([len(parts) for parts in parts_list])
-    max_lengths = [max([get(lenght, i) for lenght in lengths])
-                   for i in range(0, max_parts)]
-    for parts in parts_list:
-        for i in range(0, len(parts)):
-            parts[i] = ('0' * (max_lengths[i] - len(parts[i]))) + parts[i]
-    return ['.'.join(parts) for parts in parts_list]
-
-
-def get_or_default(match: Optional[Match], default: str) -> str:
-    version = match.group(1) if match else None
-    return version if version else default
 
 
 def parse_revision(name: str) -> str:
@@ -399,23 +283,6 @@ def parse_games(
     return games
 
 
-def get_index(ls: List[Any], item: Any, default: int) -> int:
-    try:
-        if ls:
-            return ls.index(item)
-        return default
-    except ValueError:
-        return default
-
-
-def check_in_pattern_list(name: str, patterns: List[Pattern]) -> bool:
-    if patterns:
-        for pattern in patterns:
-            if pattern.search(name):
-                return True
-    return False
-
-
 def pad_values(
         games: List[GameEntry],
         get_function: Callable[[GameEntry], str],
@@ -434,9 +301,6 @@ def language_value(
         for lang in languages])
 
 
-CURR = 0
-
-
 def index_files(
         input_dir: str,
         dat_file: str) -> Dict[str, str]:
@@ -445,61 +309,45 @@ def index_files(
     for game in root.game:
         for rom_entry in game.rom:
             result[rom_entry.sha1.lower()] = ""
-    full_paths = []
-    print('Scanning directory: %s' % input_dir, file=sys.stderr)
+    print('Scanning directory: %s\033[K' % input_dir, file=sys.stderr)
+    files_data = []
     for root, dirs, files in os.walk(input_dir):
         for file in files:
             full_path = os.path.join(root, file)
-            for_print = '%s%s' % (
-                FOUND_PREFIX,
-                trim_to(full_path, available_columns(FOUND_PREFIX)))
-            print(
-                '%s%s' % (
-                    for_print,
-                    ' ' * available_columns(for_print)),
-                end='\r',
-                file=sys.stderr)
-            full_paths.append(full_path)
-    for_print = '%s%i files' % (FOUND_PREFIX, len(full_paths))
-    print(
-        '%s%s' % (
-            for_print,
-            ' ' * available_columns(for_print)),
-        file=sys.stderr)
+            try:
+                print(
+                    '%s%s\033[K' % (
+                        FOUND_PREFIX,
+                        trim_to(
+                            full_path,
+                            available_columns(FOUND_PREFIX) - 2)),
+                    end='\r',
+                    file=sys.stderr)
+                file_size = os.path.getsize(full_path)
+                files_data.append(FileData(file_size, full_path))
+            except OSError as e:
+                print(
+                    'Error while reading file: %s\033[K' % e,
+                    file=sys.stderr)
+    files_data.sort(key=FileDataUtils.get_size, reverse=True)
+    print('%s%i files\033[K' % (FOUND_PREFIX, len(files_data)), file=sys.stderr)
 
-    if full_paths:
-        count = len(full_paths)
-        lock = Lock()
-        size = 60
+    if files_data:
+        global PROGRESSBAR
+        PROGRESSBAR = ProgressBar(len(files_data), prefix='Calculating hashes')
+        PROGRESSBAR.print(0)
 
-        def print_progressbar() -> None:
-            j = CURR
-            x = int(size * j / count)
-            print(
-                'Calculating hashes [%s%s] %i/%i' % (
-                    '#' * x,
-                    '.' * (size - x),
-                    j,
-                    count),
-                end='\r',
-                file=PROGRESSBAR_FILE)
-
-        def process_with_progress(path: str) -> Dict[str, str]:
+        def process_with_progress(file_data: FileData) -> Dict[str, str]:
             if QUIT:
                 return {}
-            this_result = process_file(path)
+            this_result = process_file(file_data)
             if QUIT:
                 return {}
-            with lock:
-                global CURR
-                CURR += 1
-                print_progressbar()
+            PROGRESSBAR.print()
             return this_result
 
-        print_progressbar()
         with ThreadPoolExecutor(THREADS) as pool:
-            intermediate_results = pool.map(process_with_progress, full_paths)
-        print('', file=PROGRESSBAR_FILE)
+            intermediate_results = pool.map(process_with_progress, files_data)
         for intermediate_result in intermediate_results:
             for key, value in intermediate_result.items():
                 if key in result and not is_zip(result[key]):
@@ -507,29 +355,20 @@ def index_files(
     return result
 
 
-def available_columns(current_text: str) -> int:
-    term_size = shutil.get_terminal_size((80, 20))
-    return max(0, term_size.columns - len(current_text))
-
-
-def trim_to(text: str, n: int) -> str:
-    if len(text) > n:
-        return '%s%s' % (TRIM_PREFIX, text[-(n - len(TRIM_PREFIX)):])
-    return text
-
-
-def process_file(full_path: str) -> Dict[str, str]:
+def process_file(file_data: FileData) -> Dict[str, str]:
+    full_path = file_data.path
     result: Dict[str, str] = {}
     if is_zip(full_path):
         try:
             with ZipFile(full_path) as compressed_file:
                 for name in compressed_file.namelist():
-                    with compressed_file.open(name) as internal_file:
-                        digest = compute_hash(internal_file)
-                        result[digest] = full_path
+                    if not QUIT:
+                        with compressed_file.open(name) as internal_file:
+                            digest = compute_hash(internal_file)
+                            result[digest] = full_path
         except BadZipFile as e:
             print(
-                'Error while reading file [%s]: %s' % (full_path, e),
+                'Error while reading file [%s]: %s\033[K' % (full_path, e),
                 file=sys.stderr)
     try:
         with open(full_path, 'rb') as uncompressed_file:
@@ -538,7 +377,7 @@ def process_file(full_path: str) -> Dict[str, str]:
                 result[digest] = full_path
     except IOError as e:
         print(
-            'Error while reading file [%s]: %s' % (full_path, e),
+            'Error while reading file: %s\033[K' % e,
             file=sys.stderr)
     return result
 
@@ -546,9 +385,9 @@ def process_file(full_path: str) -> Dict[str, str]:
 def compute_hash(
         internal_file: Union[BufferedIOBase, BinaryIO]) -> str:
     hasher = hashlib.sha1()
-    while True:
+    while not QUIT:
         chunk = internal_file.read(CHUNK_SIZE)
-        if not chunk:
+        if not chunk and not QUIT:
             break
         hasher.update(chunk)
     return hasher.hexdigest().lower()
@@ -898,37 +737,47 @@ def main(argv: List[str]):
              'Earliest' if version_asc else 'Latest'),
             file=sys.stderr)
 
+    key_generator = GameEntryKeyGenerator(
+        prioritize_languages,
+        prefer_prereleases,
+        prefer_parents,
+        input_order,
+        prefer,
+        avoid)
     for key in parsed_games:
         games = parsed_games[key]
-        pad_values(games, lambda g: g.version, lambda g, s: g.set_version(s))
-        pad_values(games, lambda g: g.revision, lambda g, s: g.set_revision(s))
-        pad_values(games, lambda g: g.sample, lambda g, s: g.set_sample(s))
-        pad_values(games, lambda g: g.demo, lambda g, s: g.set_demo(s))
-        pad_values(games, lambda g: g.beta, lambda g, s: g.set_beta(s))
-        pad_values(games, lambda g: g.proto, lambda g, s: g.set_proto(s))
-        set_scores(games,
-                   selected_regions,
-                   selected_languages,
-                   language_weight,
-                   revision_asc,
-                   version_asc)
-        games.sort(key=lambda g: (
-            g.is_bad,
-            prefer_prereleases ^ g.is_prerelease,
-            check_in_pattern_list(g.name, avoid),
-            g.score.languages if prioritize_languages else g.score.region,
-            g.score.region if prioritize_languages else g.score.languages,
-            prefer_parents and not g.is_parent,
-            g.input_index if input_order else 0,
-            not check_in_pattern_list(g.name, prefer),
-            g.score.revision,
-            g.score.version,
-            g.score.sample,
-            g.score.demo,
-            g.score.beta,
-            g.score.proto,
-            -len(g.languages),
-            not g.is_parent))
+        pad_values(
+            games,
+            GameEntryHelper.get_version,
+            GameEntryHelper.set_version)
+        pad_values(
+            games,
+            GameEntryHelper.get_revision,
+            GameEntryHelper.set_revision)
+        pad_values(
+            games,
+            GameEntryHelper.get_sample,
+            GameEntryHelper.set_sample)
+        pad_values(
+            games,
+            GameEntryHelper.get_demo,
+            GameEntryHelper.set_demo)
+        pad_values(
+            games,
+            GameEntryHelper.get_beta,
+            GameEntryHelper.set_beta)
+        pad_values(
+            games,
+            GameEntryHelper.get_proto,
+            GameEntryHelper.set_proto)
+        set_scores(
+            games,
+            selected_regions,
+            selected_languages,
+            language_weight,
+            revision_asc,
+            version_asc)
+        games.sort(key=key_generator.generate)
         if verbose:
             print(
                 'Candidate order for [%s]: %s' % (key, [g.name for g in games]),
@@ -954,8 +803,8 @@ def main(argv: List[str]):
                     digest = entry_rom.sha1.lower()
                     rom_input_path = hash_index[digest]
                     if rom_input_path:
-                        file = file_relative_to_input(rom_input_path, input_dir)
                         is_zip_file = is_zip(rom_input_path)
+                        file = file_relative_to_input(rom_input_path, input_dir)
                         if not output_dir:
                             if rom_input_path not in copied_files:
                                 print(file)
@@ -1095,10 +944,6 @@ def parse_list(
     return []
 
 
-def is_valid(x: str) -> bool:
-    return bool(x and not x.isspace())
-
-
 def set_scores(
         games: List[GameEntry],
         selected_regions: List[str],
@@ -1131,16 +976,20 @@ def set_scores(
 
 
 def transfer_file(
-        full_path: str,
-        output_dir: str,
+        input_path: str,
+        output_path: str,
         move: bool) -> None:
-    file_name = os.path.basename(full_path)
-    if move:
-        print('Moving [%s] to [%s]' % (file_name, output_dir))
-        shutil.move(full_path, output_dir)
-    else:
-        print('Copying [%s] to [%s]' % (file_name, output_dir))
-        shutil.copy2(full_path, output_dir)
+    try:
+        if move:
+            print('Moving [%s] to [%s]' % (input_path, output_path))
+            shutil.move(input_path, output_path)
+        else:
+            print('Copying [%s] to [%s]' % (input_path, output_path))
+            shutil.copy2(input_path, output_path)
+    except OSError as e:
+        print(
+            'Error while reading file: %s\033[K' % e,
+            file=sys.stderr)
 
 
 def print_help():
@@ -1371,5 +1220,8 @@ if __name__ == '__main__':
         main(sys.argv[1:])
     except KeyboardInterrupt:
         QUIT = True
-        PROGRESSBAR_FILE = open(os.devnull, 'w')
-        sys.exit('')
+        if PROGRESSBAR:
+            with PROGRESSBAR.lock:
+                sys.exit('')
+        else:
+            sys.exit('')
