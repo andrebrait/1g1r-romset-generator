@@ -988,7 +988,7 @@ def transfer_file(
             shutil.copy2(input_path, output_path)
     except OSError as e:
         print(
-            'Error while reading file: %s\033[K' % e,
+            'Error while transferring file: %s\033[K' % e,
             file=sys.stderr)
 
 
