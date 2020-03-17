@@ -10,11 +10,11 @@ from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
     BinaryIO
 from zipfile import ZipFile, BadZipFile
 
-import datafile
-from classes import GameEntry, Score, RegionData, ProgressBar, \
+from modules import datafile
+from modules.classes import GameEntry, Score, RegionData, ProgressBar, \
     GameEntryHelper, GameEntryKeyGenerator, FileData, FileDataUtils
-from utils import get_index, check_in_pattern_list, to_int_list, add_padding, \
-    get_or_default, available_columns, trim_to, is_valid
+from modules.utils import get_index, check_in_pattern_list, to_int_list, \
+    add_padding, get_or_default, available_columns, trim_to, is_valid
 
 QUIT = False
 PROGRESSBAR: Optional[ProgressBar] = None
