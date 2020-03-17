@@ -66,30 +66,30 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh'])
 ]
 
-sections_regex = re.compile(r'\(([^()]+)\)')
-bios_regex = re.compile(re.escape('[BIOS]'), re.IGNORECASE)
-program_regex = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
-enhancement_chip_regex = re.compile(r'\(Enhancement\s*Chip\)', re.IGNORECASE)
-unl_regex = re.compile(re.escape('(Unl)'), re.IGNORECASE)
-pirate_regex = re.compile(re.escape('(Pirate)'), re.IGNORECASE)
-promo_regex = re.compile(re.escape('(Promo)'), re.IGNORECASE)
-beta_regex = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-proto_regex = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-sample_regex = re.compile(r'\(Sample(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-demo_regex = re.compile(r'\(Demo(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-rev_regex = re.compile(r'\(Rev\s*([a-z0-9.]+)\)', re.IGNORECASE)
-version_regex = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
-languages_regex = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
-bad_regex = re.compile(re.escape('[b]'), re.IGNORECASE)
-zip_regex = re.compile(re.escape(os.path.extsep) + r'zip$', re.IGNORECASE)
+SECTIONS_REGEX = re.compile(r'\(([^()]+)\)')
+BIOS_REGEX = re.compile(re.escape('[BIOS]'), re.IGNORECASE)
+PROGRAM_REGEX = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
+ENHANCEMENT_CHIP_REGEX = re.compile(r'\(Enhancement\s*Chip\)', re.IGNORECASE)
+UNL_REGEX = re.compile(re.escape('(Unl)'), re.IGNORECASE)
+PIRATE_REGEX = re.compile(re.escape('(Pirate)'), re.IGNORECASE)
+PROMO_REGEX = re.compile(re.escape('(Promo)'), re.IGNORECASE)
+BETA_REGEX = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
+PROTO_REGEX = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
+SAMPLE_REGEX = re.compile(r'\(Sample(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
+DEMO_REGEX = re.compile(r'\(Demo(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
+REV_REGEX = re.compile(r'\(Rev\s*([a-z0-9.]+)\)', re.IGNORECASE)
+VERSION_REGEX = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
+LANGUAGES_REGEX = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
+BAD_REGEX = re.compile(re.escape('[b]'), re.IGNORECASE)
+ZIP_REGEX = re.compile(re.escape(os.path.extsep) + r'zip$', re.IGNORECASE)
 
 
 def parse_revision(name: str) -> str:
-    return get_or_default(rev_regex.search(name), '0')
+    return get_or_default(REV_REGEX.search(name), '0')
 
 
 def parse_version(name: str) -> str:
-    return get_or_default(version_regex.search(name), '0')
+    return get_or_default(VERSION_REGEX.search(name), '0')
 
 
 def parse_prerelease(match: Optional[Match]) -> str:
@@ -98,7 +98,7 @@ def parse_prerelease(match: Optional[Match]) -> str:
 
 def parse_region_data(name: str) -> List[RegionData]:
     parsed = []
-    for section in sections_regex.finditer(name):
+    for section in SECTIONS_REGEX.finditer(name):
         elements = [element.strip() for element in section.group(1).split(',')]
         for element in elements:
             for region_data in COUNTRY_REGION_CORRELATION:
@@ -109,7 +109,7 @@ def parse_region_data(name: str) -> List[RegionData]:
 
 
 def parse_languages(name: str) -> List[str]:
-    lang_matcher = languages_regex.search(name)
+    lang_matcher = LANGUAGES_REGEX.search(name)
     languages = []
     if lang_matcher:
         for entry in lang_matcher.group(1).split(','):
@@ -201,21 +201,21 @@ def parse_games(
     root = datafile.parse(file, silence=True)
     for input_index in range(0, len(root.game)):
         game = root.game[input_index]
-        beta_match = beta_regex.search(game.name)
-        demo_match = demo_regex.search(game.name)
-        sample_match = sample_regex.search(game.name)
-        proto_match = proto_regex.search(game.name)
-        if filter_bios and bios_regex.search(game.name):
+        beta_match = BETA_REGEX.search(game.name)
+        demo_match = DEMO_REGEX.search(game.name)
+        sample_match = SAMPLE_REGEX.search(game.name)
+        proto_match = PROTO_REGEX.search(game.name)
+        if filter_bios and BIOS_REGEX.search(game.name):
             continue
-        if filter_unlicensed and unl_regex.search(game.name):
+        if filter_unlicensed and UNL_REGEX.search(game.name):
             continue
-        if filter_pirate and pirate_regex.search(game.name):
+        if filter_pirate and PIRATE_REGEX.search(game.name):
             continue
-        if filter_promo and promo_regex.search(game.name):
+        if filter_promo and PROMO_REGEX.search(game.name):
             continue
-        if filter_program and program_regex.search(game.name):
+        if filter_program and PROGRAM_REGEX.search(game.name):
             continue
-        if filter_enhancement_chip and enhancement_chip_regex.search(game.name):
+        if filter_enhancement_chip and ENHANCEMENT_CHIP_REGEX.search(game.name):
             continue
         if filter_beta and beta_match:
             continue
@@ -228,7 +228,7 @@ def parse_games(
         if check_in_pattern_list(game.name, exclude):
             continue
         is_parent = not game.cloneof
-        is_bad = bool(bad_regex.search(game.name))
+        is_bad = bool(BAD_REGEX.search(game.name))
         beta = parse_prerelease(beta_match)
         demo = parse_prerelease(demo_match)
         sample = parse_prerelease(sample_match)
@@ -394,7 +394,7 @@ def compute_hash(
 
 
 def is_zip(file: str) -> bool:
-    return bool(zip_regex.search(file))
+    return bool(ZIP_REGEX.search(file))
 
 
 def main(argv: List[str]):

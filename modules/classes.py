@@ -2,8 +2,8 @@ import sys
 from threading import Lock
 from typing import Optional, List, Pattern, TextIO, Tuple
 
-from datafile import rom
-from utils import check_in_pattern_list
+from modules.datafile import rom
+from modules.utils import check_in_pattern_list
 
 
 class FileData:
