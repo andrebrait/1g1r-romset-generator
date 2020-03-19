@@ -1,9 +1,9 @@
 import sys
 from threading import Lock
-from typing import Optional, List, Pattern, TextIO, Tuple
+from typing import Optional, List, Pattern, TextIO, Tuple, Any
 
 from modules.datafile import rom
-from modules.utils import check_in_pattern_list
+from modules.utils import check_in_pattern_list, trim_to, available_columns
 
 
 class FileData:
@@ -177,31 +177,65 @@ class RegionData:
         self.languages = languages
 
 
-class ProgressBar:
+class MultiThreadedProgressBar:
     def __init__(
             self,
             count: int,
+            num_threads: int,
             prefix: str = '',
             size: int = 60):
+        self.num_threads = num_threads
         self.count = count
         self.prefix = prefix
         self.size = size
         self.curr = 0
         self.lock = Lock()
 
-    def print(
+    def __internal_print(self, output_file):
+        x = int(self.size * self.curr / self.count)
+        print(
+            '%s [%s%s] %i/%i\033[K' % (
+                self.prefix,
+                '#' * x,
+                '.' * (self.size - x),
+                self.curr,
+                self.count),
+            end='\r',
+            file=output_file)
+
+    def init(self, output_file: TextIO = sys.stderr):
+        with self.lock:
+            for i in range(0, self.num_threads):
+                print('Thread %i: INITIALIZED\033[K' % i, file=output_file)
+                self.__internal_print(output_file)
+
+    def print_bar(
             self,
             increase: int = 1,
             output_file: TextIO = sys.stderr) -> None:
         with self.lock:
             self.curr += increase
-            x = int(self.size * self.curr / self.count)
+            self.__internal_print(output_file)
+
+    def print_thread(
+            self,
+            thread: int,
+            item: Any,
+            output_file: TextIO = sys.stderr) -> None:
+        with self.lock:
+            for_print = 'Thread %i: ' % thread
+            diff = (self.num_threads - thread)
             print(
-                '%s [%s%s] %i/%i\033[K' % (
-                    self.prefix,
-                    '#' * x,
-                    '.' * (self.size - x),
-                    self.curr,
-                    self.count),
-                end='\n' if self.curr == self.count else '\r',
+                '\r'
+                '\033[%iA'
+                '%s'
+                '%s'
+                '\033[K'
+                '\r'
+                '\033[%iB' % (
+                    diff,
+                    for_print,
+                    trim_to(item, available_columns(for_print)),
+                    diff),
+                end='\r',
                 file=output_file)

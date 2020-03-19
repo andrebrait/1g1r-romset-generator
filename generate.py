@@ -4,24 +4,25 @@ import os
 import re
 import shutil
 import sys
-from concurrent.futures.thread import ThreadPoolExecutor
 from io import BufferedIOBase
+from threading import Thread, current_thread
 from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
     BinaryIO
 from zipfile import ZipFile, BadZipFile
 
 from modules import datafile
-from modules.classes import GameEntry, Score, RegionData, ProgressBar, \
-    GameEntryHelper, GameEntryKeyGenerator, FileData, FileDataUtils
+from modules.classes import GameEntry, Score, RegionData, \
+    GameEntryHelper, GameEntryKeyGenerator, FileData, FileDataUtils, \
+    MultiThreadedProgressBar
 from modules.utils import get_index, check_in_pattern_list, to_int_list, \
     add_padding, get_or_default, available_columns, trim_to, is_valid
 
 QUIT = False
-PROGRESSBAR: Optional[ProgressBar] = None
+PROGRESSBAR: Optional[MultiThreadedProgressBar] = None
 
 FOUND_PREFIX = 'Found: '
 
-THREADS: Optional[int] = None
+THREADS: int = 4
 
 CHUNK_SIZE = 33554432  # 32 MB
 
@@ -334,20 +335,48 @@ def index_files(
 
     if files_data:
         global PROGRESSBAR
-        PROGRESSBAR = ProgressBar(len(files_data), prefix='Calculating hashes')
-        PROGRESSBAR.print(0)
+        PROGRESSBAR = MultiThreadedProgressBar(
+            len(files_data),
+            THREADS,
+            prefix='Calculating hashes')
+        PROGRESSBAR.init()
 
-        def process_with_progress(file_data: FileData) -> Dict[str, str]:
-            if QUIT:
-                return {}
-            this_result = process_file(file_data)
-            if QUIT:
-                return {}
-            PROGRESSBAR.print()
-            return this_result
+        def process_thread_with_progress(
+                shared_files_data: List[FileData],
+                shared_result_data: List[Dict[str, str]]) -> None:
+            curr_thread = current_thread()
+            while True:
+                try:
+                    next_file = shared_files_data.pop(0)
+                    PROGRESSBAR.print_thread(
+                        curr_thread.num,
+                        next_file.path)
+                    if QUIT:
+                        return
+                    shared_result_data.append(process_file(next_file))
+                    if QUIT:
+                        return
+                    PROGRESSBAR.print_bar()
+                except IndexError:
+                    PROGRESSBAR.print_thread(curr_thread.num, "DONE")
+                    break
 
-        with ThreadPoolExecutor(THREADS) as pool:
-            intermediate_results = pool.map(process_with_progress, files_data)
+        threads = []
+        intermediate_results = []
+        for i in range(0, THREADS):
+            t = Thread(
+                target=process_thread_with_progress,
+                args=[files_data, intermediate_results],
+                daemon=True)
+            t.num = i
+            t.start()
+            threads.append(t)
+
+        for t in threads:
+            t.join()
+
+        print('', file=sys.stderr)
+
         for intermediate_result in intermediate_results:
             for key, value in intermediate_result.items():
                 if key in result and not is_zip(result[key]):
@@ -636,7 +665,11 @@ def main(argv: List[str]):
             'all-regions is mutually exclusive with all-regions-with-lang',
             file=sys.stderr)
         print_help()
-        sys.exit()
+        sys.exit(1)
+    if THREADS <= 0:
+        print('Number of threads should be >= 0', file=sys.stderr)
+        print_help()
+        sys.exit(1)
     try:
         prefer = parse_list(prefer_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
@@ -1048,7 +1081,7 @@ def print_help():
         'When using hashes, sets the number of I/O threads to be used to read '
         'files'
         '\n\t\t\t\t'
-        'Default: default Python thread pool size',
+        'Default: 4',
         file=sys.stderr)
     print(
         '\t--chunk-size\t\t'
