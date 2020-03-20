@@ -206,7 +206,9 @@ class MultiThreadedProgressBar:
     def init(self, output_file: TextIO = sys.stderr):
         with self.lock:
             for i in range(0, self.num_threads):
-                print('Thread %i: INITIALIZED\033[K' % i, file=output_file)
+                print(
+                    'Thread %i: INITIALIZED\033[K' % (i + 1),
+                    file=output_file)
                 self.__internal_print(output_file)
 
     def print_bar(
@@ -223,7 +225,7 @@ class MultiThreadedProgressBar:
             item: Any,
             output_file: TextIO = sys.stderr) -> None:
         with self.lock:
-            for_print = 'Thread %i: ' % thread
+            for_print = 'Thread %i: ' % (thread + 1)
             diff = (self.num_threads - thread)
             print(
                 '\r'
