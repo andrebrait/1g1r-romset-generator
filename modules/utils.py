@@ -1,5 +1,5 @@
 import shutil
-from typing import List, Any, Pattern, Optional, Match
+from typing import List, Any, Pattern, Optional, Match, Iterable
 
 TRIM_PREFIX = '(...)'
 
@@ -13,7 +13,7 @@ def get_index(ls: List[Any], item: Any, default: int) -> int:
         return default
 
 
-def check_in_pattern_list(name: str, patterns: List[Pattern]) -> bool:
+def check_in_pattern_list(name: str, patterns: Iterable[Pattern]) -> bool:
     if patterns:
         for pattern in patterns:
             if pattern.search(name):

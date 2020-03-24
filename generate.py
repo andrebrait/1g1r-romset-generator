@@ -5,7 +5,7 @@ import re
 import shutil
 import sys
 from io import BufferedIOBase
-from threading import Thread, current_thread
+from threading import current_thread
 from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
     BinaryIO
 from zipfile import ZipFile, BadZipFile
@@ -13,11 +13,10 @@ from zipfile import ZipFile, BadZipFile
 from modules import datafile
 from modules.classes import GameEntry, Score, RegionData, \
     GameEntryHelper, GameEntryKeyGenerator, FileData, FileDataUtils, \
-    MultiThreadedProgressBar
+    MultiThreadedProgressBar, IndexedThread
 from modules.utils import get_index, check_in_pattern_list, to_int_list, \
     add_padding, get_or_default, available_columns, trim_to, is_valid
 
-QUIT = False
 PROGRESSBAR: Optional[MultiThreadedProgressBar] = None
 
 FOUND_PREFIX = 'Found: '
@@ -169,10 +168,9 @@ def validate_dat(file: str, use_hashes: bool) -> None:
                 offending_entry = game.name
                 break
     if use_hashes and lacks_sha1:
-        print(
+        sys.exit(
             'ERROR: Cannot use hash information because DAT lacks SHA1 digests '
             'for [%s].' % offending_entry)
-        sys.exit(1)
     if not has_cloneof:
         print('This DAT *seems* to be a Standard DAT')
         print('A Parent/Clone XML DAT is required to generate a 1G1R ROM set')
@@ -306,10 +304,12 @@ def index_files(
         input_dir: str,
         dat_file: str) -> Dict[str, str]:
     result: Dict[str, str] = {}
+    also_check_archive: bool = False
     root = datafile.parse(dat_file, silence=True)
     for game in root.game:
         for rom_entry in game.rom:
             result[rom_entry.sha1.lower()] = ""
+            also_check_archive |= bool(ZIP_REGEX.search(rom_entry.name))
     print('Scanning directory: %s\033[K' % input_dir, file=sys.stderr)
     files_data = []
     for root, dirs, files in os.walk(input_dir):
@@ -346,29 +346,29 @@ def index_files(
                 shared_result_data: List[Dict[str, str]]) -> None:
             curr_thread = current_thread()
             while True:
+                if not isinstance(curr_thread, IndexedThread):
+                    sys.exit('Bad thread type. Expected %s' % IndexedThread)
                 try:
                     next_file = shared_files_data.pop(0)
                     PROGRESSBAR.print_thread(
-                        curr_thread.num,
+                        curr_thread.index,
                         next_file.path)
-                    if QUIT:
-                        return
-                    shared_result_data.append(process_file(next_file))
-                    if QUIT:
-                        return
+                    shared_result_data.append(process_file(
+                        next_file,
+                        also_check_archive))
                     PROGRESSBAR.print_bar()
                 except IndexError:
-                    PROGRESSBAR.print_thread(curr_thread.num, "DONE")
+                    PROGRESSBAR.print_thread(curr_thread.index, "DONE")
                     break
 
         threads = []
         intermediate_results = []
         for i in range(0, THREADS):
-            t = Thread(
+            t = IndexedThread(
+                index=i,
                 target=process_thread_with_progress,
                 args=[files_data, intermediate_results],
                 daemon=True)
-            t.num = i
             t.start()
             threads.append(t)
 
@@ -384,39 +384,42 @@ def index_files(
     return result
 
 
-def process_file(file_data: FileData) -> Dict[str, str]:
+def process_file(
+        file_data: FileData,
+        also_check_archive: bool) -> Dict[str, str]:
     full_path = file_data.path
     result: Dict[str, str] = {}
-    if is_zip(full_path):
+    is_zip_file = is_zip(full_path)
+    if is_zip_file:
         try:
             with ZipFile(full_path) as compressed_file:
                 for name in compressed_file.namelist():
-                    if not QUIT:
-                        with compressed_file.open(name) as internal_file:
-                            digest = compute_hash(internal_file)
-                            result[digest] = full_path
+                    with compressed_file.open(name) as internal_file:
+                        digest = compute_hash(internal_file)
+                        result[digest] = full_path
         except BadZipFile as e:
             print(
                 'Error while reading file [%s]: %s\033[K' % (full_path, e),
                 file=sys.stderr)
-    try:
-        with open(full_path, 'rb') as uncompressed_file:
-            digest = compute_hash(uncompressed_file)
-            if digest not in result or is_zip(result[digest]):
-                result[digest] = full_path
-    except IOError as e:
-        print(
-            'Error while reading file: %s\033[K' % e,
-            file=sys.stderr)
+    if not is_zip_file or also_check_archive:
+        try:
+            with open(full_path, 'rb') as uncompressed_file:
+                digest = compute_hash(uncompressed_file)
+                if digest not in result or is_zip(result[digest]):
+                    result[digest] = full_path
+        except IOError as e:
+            print(
+                'Error while reading file: %s\033[K' % e,
+                file=sys.stderr)
     return result
 
 
 def compute_hash(
         internal_file: Union[BufferedIOBase, BinaryIO]) -> str:
     hasher = hashlib.sha1()
-    while not QUIT:
+    while True:
         chunk = internal_file.read(CHUNK_SIZE)
-        if not chunk and not QUIT:
+        if not chunk:
             break
         hasher.update(chunk)
     return hasher.hexdigest().lower()
@@ -513,6 +516,7 @@ def main(argv: List[str]):
     language_weight = 3
     debug = False
     move = False
+    global THREADS
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
@@ -605,7 +609,6 @@ def main(argv: List[str]):
             global CHUNK_SIZE
             CHUNK_SIZE = int(arg)
         if opt == '--threads':
-            global THREADS
             THREADS = int(arg)
     if file_extension and use_hashes:
         print('extensions cannot be used with hashes', file=sys.stderr)
@@ -1252,7 +1255,6 @@ if __name__ == '__main__':
     try:
         main(sys.argv[1:])
     except KeyboardInterrupt:
-        QUIT = True
         if PROGRESSBAR:
             with PROGRESSBAR.lock:
                 sys.exit('')

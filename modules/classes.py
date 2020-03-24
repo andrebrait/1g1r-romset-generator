@@ -1,9 +1,25 @@
 import sys
-from threading import Lock
+from threading import Lock, Thread
 from typing import Optional, List, Pattern, TextIO, Tuple, Any
 
 from modules.datafile import rom
 from modules.utils import check_in_pattern_list, trim_to, available_columns
+
+
+class IndexedThread(Thread):
+
+    def __init__(
+            self,
+            index: int,
+            group=None,
+            target=None,
+            name=None,
+            args=(),
+            kwargs=None,
+            *,
+            daemon=None):
+        super().__init__(group, target, name, args, kwargs, daemon=daemon)
+        self.index = index
 
 
 class FileData:
