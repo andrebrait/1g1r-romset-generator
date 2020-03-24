@@ -345,9 +345,9 @@ def index_files(
                 shared_files_data: List[FileData],
                 shared_result_data: List[Dict[str, str]]) -> None:
             curr_thread = current_thread()
+            if not isinstance(curr_thread, IndexedThread):
+                sys.exit('Bad thread type. Expected %s' % IndexedThread)
             while True:
-                if not isinstance(curr_thread, IndexedThread):
-                    sys.exit('Bad thread type. Expected %s' % IndexedThread)
                 try:
                     next_file = shared_files_data.pop(0)
                     PROGRESSBAR.print_thread(
