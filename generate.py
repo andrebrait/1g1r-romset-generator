@@ -352,7 +352,7 @@ def index_files(
                     next_file = shared_files_data.pop(0)
                     PROGRESSBAR.print_thread(
                         curr_thread.index,
-                        next_file.path)
+                        file_relative_to_input(next_file.path, input_dir))
                     shared_result_data.append(process_file(
                         next_file,
                         also_check_archive))
