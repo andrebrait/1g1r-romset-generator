@@ -320,7 +320,7 @@ def index_files(
                     '%s%s\033[K' % (
                         FOUND_PREFIX,
                         trim_to(
-                            full_path,
+                            file_relative_to_input(full_path, input_dir),
                             available_columns(FOUND_PREFIX) - 2)),
                     end='\r',
                     file=sys.stderr)

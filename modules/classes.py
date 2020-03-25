@@ -200,28 +200,33 @@ class MultiThreadedProgressBar:
             num_threads: int,
             prefix: str = '',
             size: int = 60):
-        self.num_threads = num_threads
-        self.count = count
-        self.prefix = prefix
-        self.size = size
-        self.curr = 0
         self.lock = Lock()
+        self.__num_threads = num_threads
+        self.__count = count
+        self.__prefix = prefix
+        self.__size = size
+        self.__curr = 0
+        self.__max_num_len = len('%i' % self.__count)
 
     def __internal_print(self, output_file):
-        x = int(self.size * self.curr / self.count)
+        for_print = '%s [%s] %*i/%i' % (
+            self.__prefix,
+            '%s%s',
+            self.__max_num_len,
+            self.__curr,
+            self.__count)
+        size = max(0, min(self.__size, available_columns(for_print) + 4))
+        x = int(size * self.__curr / self.__count)
         print(
-            '%s [%s%s] %i/%i\033[K' % (
-                self.prefix,
+            for_print % (
                 '#' * x,
-                '.' * (self.size - x),
-                self.curr,
-                self.count),
+                '.' * (size - x)) + '\033[K',
             end='\r',
             file=output_file)
 
     def init(self, output_file: TextIO = sys.stderr):
         with self.lock:
-            for i in range(0, self.num_threads):
+            for i in range(0, self.__num_threads):
                 print(
                     'Thread %i: INITIALIZED\033[K' % (i + 1),
                     file=output_file)
@@ -232,7 +237,7 @@ class MultiThreadedProgressBar:
             increase: int = 1,
             output_file: TextIO = sys.stderr) -> None:
         with self.lock:
-            self.curr += increase
+            self.__curr += increase
             self.__internal_print(output_file)
 
     def print_thread(
@@ -242,7 +247,7 @@ class MultiThreadedProgressBar:
             output_file: TextIO = sys.stderr) -> None:
         with self.lock:
             for_print = 'Thread %i: ' % (thread + 1)
-            diff = (self.num_threads - thread)
+            diff = (self.__num_threads - thread)
             print(
                 '\r'
                 '\033[%iA'
