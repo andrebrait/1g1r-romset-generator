@@ -31,8 +31,11 @@ Options:
                                 Ex.: -o "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
         --use-hashes            If set, ROM file hashes are going to be used to identify candidates
+        --header-size=BYTES     Sets the number of bytes to skip when using hashes with headered ROMs
+                                This is NOT necessary for No-Intro DATs for the NES because we can detect them ;-)
+                                Default: 0
         --threads=THREADS       When using hashes, sets the number of I/O threads to be used to read files
-                                Default: default Python thread pool size
+                                Default: 4
         --chunk-size            When using hashes, sets the chunk size for buffered I/O operations (in bytes)
                                 Default: 33554432 bytes (32 MB)
 

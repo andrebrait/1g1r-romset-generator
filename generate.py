@@ -34,6 +34,8 @@ AVOIDED_ROM_BASE = 1000
 
 NO_WARNING: bool = False
 
+HEADER_SIZE = 0
+
 COUNTRY_REGION_CORRELATION = [
     # Language needs checking
     RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),
@@ -306,6 +308,13 @@ def index_files(
     result: Dict[str, str] = {}
     also_check_archive: bool = False
     root = datafile.parse(dat_file, silence=True)
+    global HEADER_SIZE
+    if HEADER_SIZE == 0 and root.header.clrmamepro:
+        if root.header.clrmamepro.header == 'No-Intro_NES.xml':
+            HEADER_SIZE = 0x10
+    if HEADER_SIZE == 0 and root.header.romcenter:
+        if root.header.romcenter.plugin == 'nes.dll':
+            HEADER_SIZE = 0x10
     for game in root.game:
         for rom_entry in game.rom:
             result[rom_entry.sha1.lower()] = ""
@@ -417,6 +426,8 @@ def process_file(
 def compute_hash(
         internal_file: Union[BufferedIOBase, BinaryIO]) -> str:
     hasher = hashlib.sha1()
+    if HEADER_SIZE > 0:
+        internal_file.read(HEADER_SIZE)
     while True:
         chunk = internal_file.read(CHUNK_SIZE)
         if not chunk:
@@ -473,7 +484,8 @@ def main(argv: List[str]):
             'move',
             'no-warning',
             'chunk-size=',
-            'threads='
+            'threads=',
+            'header-size='
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -517,6 +529,7 @@ def main(argv: List[str]):
     debug = False
     move = False
     global THREADS
+    global HEADER_SIZE
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
@@ -610,6 +623,9 @@ def main(argv: List[str]):
             CHUNK_SIZE = int(arg)
         if opt == '--threads':
             THREADS = int(arg)
+        if opt == '--header-size':
+            HEADER_SIZE = int(arg)
+
     if file_extension and use_hashes:
         print('extensions cannot be used with hashes', file=sys.stderr)
         print_help()
@@ -670,7 +686,11 @@ def main(argv: List[str]):
         print_help()
         sys.exit(1)
     if THREADS <= 0:
-        print('Number of threads should be >= 0', file=sys.stderr)
+        print('Number of threads should be > 0', file=sys.stderr)
+        print_help()
+        sys.exit(1)
+    if HEADER_SIZE < 0:
+        print('Header size should be >= 0', file=sys.stderr)
         print_help()
         sys.exit(1)
     try:
@@ -1078,6 +1098,15 @@ def print_help():
     print(
         '\t--use-hashes\t\t'
         'If set, ROM file hashes are going to be used to identify candidates',
+        file=sys.stderr)
+    print(
+        '\t--header-size=BYTES\t'
+        'Sets the number of bytes to skip when using hashes with headered ROMs'
+        '\n\t\t\t\t'
+        'This is NOT necessary for No-Intro DATs for the NES '
+        'because we can detect them ;-)'
+        '\n\t\t\t\t'
+        'Default: 0',
         file=sys.stderr)
     print(
         '\t--threads=THREADS\t'
