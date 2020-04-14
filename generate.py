@@ -36,6 +36,8 @@ NO_WARNING: bool = False
 
 HEADER_SIZE = 0
 
+NES_HEADER_SIZE = 0x10
+
 COUNTRY_REGION_CORRELATION = [
     # Language needs checking
     RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),
@@ -309,12 +311,8 @@ def index_files(
     also_check_archive: bool = False
     root = datafile.parse(dat_file, silence=True)
     global HEADER_SIZE
-    if HEADER_SIZE == 0 and root.header.clrmamepro:
-        if root.header.clrmamepro.header == 'No-Intro_NES.xml':
-            HEADER_SIZE = 0x10
-    if HEADER_SIZE == 0 and root.header.romcenter:
-        if root.header.romcenter.plugin == 'nes.dll':
-            HEADER_SIZE = 0x10
+    if HEADER_SIZE == 0:
+        HEADER_SIZE = detect_header_size(root)
     for game in root.game:
         for rom_entry in game.rom:
             result[rom_entry.sha1.lower()] = ""
@@ -391,6 +389,32 @@ def index_files(
                 if key in result and not is_zip(result[key]):
                     result[key] = value
     return result
+
+
+def detect_header_size(root: datafile) -> int:
+    if root.header.clrmamepro:
+        if root.header.clrmamepro.header in (
+                'No-Intro_NES.xml',
+                'No-Intro_FDS.xml'):
+            return NES_HEADER_SIZE
+        elif root.header.clrmamepro.header and not NO_WARNING:
+            print(
+                'WARNING: Could not automatically detect header size for '
+                'ClrMamePro Header file %s'
+                % root.header.clrmamepro.header,
+                file=sys.stderr)
+    if root.header.romcenter:
+        if root.header.romcenter.plugin in (
+                'nes.dll',
+                'fds.dll'):
+            return NES_HEADER_SIZE
+        elif root.header.romcenter.plugin and not NO_WARNING:
+            print(
+                'WARNING: Could not automatically detect header size for '
+                'RomCenter plugin %s'
+                % root.header.romcenter.plugin,
+                file=sys.stderr)
+    return 0
 
 
 def process_file(
