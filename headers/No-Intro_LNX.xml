@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<detector>
+
+  <name>No-Intro Lynx Dat LNX Header Skipper</name>
+  <author>Yakushi~Kabuto</author>
+  <version>20070408</version>
+
+  <rule start_offset="40">
+    <data offset="0" value="4C594E58"/>
+  </rule>
+
+</detector>

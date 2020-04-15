@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<detector>
+  <name>No-Intro Atari 7800 Dat Header Skipper</name>
+  <author>Connie</author>
+  <version>20130123</version>
+    <rule start_offset="80" end_offset="EOF" operation="none">
+      <data offset="1" value="415441524937383030" result="true"/>
+      <data offset="60" value="0000000041435455414C20434152542044415441205354415254532048455245" result="true"/>
+    </rule>
+</detector>

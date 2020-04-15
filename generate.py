@@ -8,12 +8,13 @@ from io import BufferedIOBase
 from threading import current_thread
 from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
     BinaryIO
-from zipfile import ZipFile, BadZipFile
+from zipfile import ZipFile, BadZipFile, ZipInfo
 
-from modules import datafile
+from modules import datafile, header
 from modules.classes import GameEntry, Score, RegionData, \
     GameEntryHelper, GameEntryKeyGenerator, FileData, FileDataUtils, \
     MultiThreadedProgressBar, IndexedThread
+from modules.header import Rule
 from modules.utils import get_index, check_in_pattern_list, to_int_list, \
     add_padding, get_or_default, available_columns, trim_to, is_valid
 
@@ -23,7 +24,9 @@ FOUND_PREFIX = 'Found: '
 
 THREADS: int = 4
 
-CHUNK_SIZE = 33554432  # 32 MB
+CHUNK_SIZE = 33554432  # 32 MiB
+
+MAX_FILE_SIZE = 268435456  # 256 MiB
 
 FILE_PREFIX = 'file:'
 
@@ -34,9 +37,7 @@ AVOIDED_ROM_BASE = 1000
 
 NO_WARNING: bool = False
 
-HEADER_SIZE = 0
-
-NES_HEADER_SIZE = 0x10
+RULES: List[Rule] = []
 
 COUNTRY_REGION_CORRELATION = [
     # Language needs checking
@@ -310,9 +311,9 @@ def index_files(
     result: Dict[str, str] = {}
     also_check_archive: bool = False
     root = datafile.parse(dat_file, silence=True)
-    global HEADER_SIZE
-    if HEADER_SIZE == 0:
-        HEADER_SIZE = detect_header_size(root)
+    global RULES
+    if not RULES:
+        RULES = get_header_rules(root)
     for game in root.game:
         for rom_entry in game.rom:
             result[rom_entry.sha1.lower()] = ""
@@ -391,30 +392,19 @@ def index_files(
     return result
 
 
-def detect_header_size(root: datafile) -> int:
+def get_header_rules(root: datafile) -> List[Rule]:
     if root.header.clrmamepro:
-        if root.header.clrmamepro.header in (
-                'No-Intro_NES.xml',
-                'No-Intro_FDS.xml'):
-            return NES_HEADER_SIZE
-        elif root.header.clrmamepro.header and not NO_WARNING:
-            print(
-                'WARNING: Could not automatically detect header size for '
-                'ClrMamePro Header file %s'
-                % root.header.clrmamepro.header,
-                file=sys.stderr)
-    if root.header.romcenter:
-        if root.header.romcenter.plugin in (
-                'nes.dll',
-                'fds.dll'):
-            return NES_HEADER_SIZE
-        elif root.header.romcenter.plugin and not NO_WARNING:
-            print(
-                'WARNING: Could not automatically detect header size for '
-                'RomCenter plugin %s'
-                % root.header.romcenter.plugin,
-                file=sys.stderr)
-    return 0
+        if root.header.clrmamepro.header:
+            header_file = os.path.join('headers', root.header.clrmamepro.header)
+            if os.path.isfile(header_file):
+                return header.parse_rules(header_file)
+            elif not NO_WARNING:
+                print(
+                    'WARNING: could not find header file %s. '
+                    'This may cause hashes to be calculated wrong'
+                    % header_file,
+                    file=sys.stderr)
+                return []
 
 
 def process_file(
@@ -427,8 +417,10 @@ def process_file(
         try:
             with ZipFile(full_path) as compressed_file:
                 for name in compressed_file.namelist():
+                    file_info: ZipInfo = compressed_file.getinfo(name)
+                    file_size = file_info.file_size
                     with compressed_file.open(name) as internal_file:
-                        digest = compute_hash(internal_file)
+                        digest = compute_hash(file_size, internal_file)
                         result[digest] = full_path
         except BadZipFile as e:
             print(
@@ -436,8 +428,9 @@ def process_file(
                 file=sys.stderr)
     if not is_zip_file or also_check_archive:
         try:
+            file_size: int = os.path.getsize(full_path)
             with open(full_path, 'rb') as uncompressed_file:
-                digest = compute_hash(uncompressed_file)
+                digest = compute_hash(file_size, uncompressed_file)
                 if digest not in result or is_zip(result[digest]):
                     result[digest] = full_path
         except IOError as e:
@@ -448,15 +441,21 @@ def process_file(
 
 
 def compute_hash(
+        file_size: int,
         internal_file: Union[BufferedIOBase, BinaryIO]) -> str:
     hasher = hashlib.sha1()
-    if HEADER_SIZE > 0:
-        internal_file.read(HEADER_SIZE)
-    while True:
-        chunk = internal_file.read(CHUNK_SIZE)
-        if not chunk:
-            break
-        hasher.update(chunk)
+    if RULES and file_size <= MAX_FILE_SIZE:
+        file_bytes = internal_file.read()
+        for rule in RULES:
+            if rule.test(file_bytes):
+                file_bytes = rule.apply(file_bytes)
+        hasher.update(file_bytes)
+    else:
+        while True:
+            chunk = internal_file.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            hasher.update(chunk)
     return hasher.hexdigest().lower()
 
 
@@ -509,7 +508,8 @@ def main(argv: List[str]):
             'no-warning',
             'chunk-size=',
             'threads=',
-            'header-size='
+            'header-file=',
+            'max-file-size='
         ])
     except getopt.GetoptError as e:
         print(e, file=sys.stderr)
@@ -553,7 +553,8 @@ def main(argv: List[str]):
     debug = False
     move = False
     global THREADS
-    global HEADER_SIZE
+    global RULES
+    global MAX_FILE_SIZE
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print_help()
@@ -647,8 +648,15 @@ def main(argv: List[str]):
             CHUNK_SIZE = int(arg)
         if opt == '--threads':
             THREADS = int(arg)
-        if opt == '--header-size':
-            HEADER_SIZE = int(arg)
+        if opt == '--header-file':
+            header_file = os.path.expanduser(arg.strip())
+            if not os.path.isfile(header_file):
+                print('invalid header file: %s' % header_file, file=sys.stderr)
+                print_help()
+                sys.exit(1)
+            RULES = header.parse_rules(header_file)
+        if opt == '--max-file-size':
+            MAX_FILE_SIZE = int(arg)
 
     if file_extension and use_hashes:
         print('extensions cannot be used with hashes', file=sys.stderr)
@@ -713,8 +721,8 @@ def main(argv: List[str]):
         print('Number of threads should be > 0', file=sys.stderr)
         print_help()
         sys.exit(1)
-    if HEADER_SIZE < 0:
-        print('Header size should be >= 0', file=sys.stderr)
+    if MAX_FILE_SIZE <= 0:
+        print('Maximum file size should be > 0', file=sys.stderr)
         print_help()
         sys.exit(1)
     try:
@@ -1124,13 +1132,10 @@ def print_help():
         'If set, ROM file hashes are going to be used to identify candidates',
         file=sys.stderr)
     print(
-        '\t--header-size=BYTES\t'
-        'Sets the number of bytes to skip when using hashes with headered ROMs'
+        '\t--header-file=PATH\t'
+        'Sets the header file to be used with headered ROMs'
         '\n\t\t\t\t'
-        'This is NOT necessary for No-Intro DATs for the NES '
-        'because we can detect them ;-)'
-        '\n\t\t\t\t'
-        'Default: 0',
+        'You can also just add the file to the headers directory',
         file=sys.stderr)
     print(
         '\t--threads=THREADS\t'
@@ -1140,11 +1145,18 @@ def print_help():
         'Default: 4',
         file=sys.stderr)
     print(
-        '\t--chunk-size\t\t'
+        '\t--chunk-size=BYTES\t'
         'When using hashes, sets the chunk size for buffered I/O operations '
         '(in bytes)'
         '\n\t\t\t\t'
-        'Default: 33554432 bytes (32 MB)',
+        'Default: 33554432 (32 MiB)',
+        file=sys.stderr)
+    print(
+        '\t--max-file-size=BYTES\t'
+        'When using hashes, sets the maximum file size for header '
+        'information processing (in bytes)'
+        '\n\t\t\t\t'
+        'Default: 268435456 (256 MiB)',
         file=sys.stderr)
     print('\n# Filtering:', file=sys.stderr)
     print(
