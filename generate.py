@@ -1308,7 +1308,7 @@ def print_help():
         file=sys.stderr)
     print(
         '\t--no-warning\t\t'
-        'Supresses all warnings',
+        'Suppresses all warnings',
         file=sys.stderr)
     print(
         '\n# See https://github.com/andrebrait/1g1r-romset-generator/wiki '

@@ -85,7 +85,7 @@ Options:
         -h,--help               Prints this usage message
         -v,--verbose            Prints more messages (useful when troubleshooting)
         --debug                 Prints even more messages (useful when troubleshooting)
-        --no-warning            Supresses all warnings
+        --no-warning            Suppresses all warnings
 ```
 
 #### Motivation
