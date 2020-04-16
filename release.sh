@@ -12,6 +12,8 @@ git commit -m "Release ${RELEASE_VERSION}"
 git tag -a "${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}"
 git push --follow-tags
 
+zip -r "1g1r-romset-generator-${RELEASE_VERSION}.zip" generate.py LICENSE README.md headers modules
+
 sed -E -i.releaseBackup "s/^__version__ = .*$/__version__ = '${NEXT_VERSION}'/" generate.py
 
 git add generate.py

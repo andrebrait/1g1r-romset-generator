@@ -9,3 +9,4 @@
 __pycache__
 generate.log
 *.releaseBackup
+*.zip
