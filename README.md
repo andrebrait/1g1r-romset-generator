@@ -85,7 +85,8 @@ Options:
 
 # Help and debugging:
         -h,--help               Prints this usage message
-        -v,--verbose            Logs more messages (useful when troubleshooting)
+        -v,--version            Prints the version
+        -V,--verbose            Logs more messages (useful when troubleshooting)
         --debug                 Logs even more messages (useful when troubleshooting)
 ```
 
