@@ -18,6 +18,8 @@ from modules.header import Rule
 from modules.utils import get_index, check_in_pattern_list, to_int_list, \
     add_padding, get_or_default, available_columns, trim_to, is_valid
 
+__version__ = '1.9.0-SNAPSHOT'
+
 PROGRESSBAR: Optional[MultiThreadedProgressBar] = None
 
 FOUND_PREFIX = 'Found: '
@@ -457,7 +459,7 @@ def is_zip(file: str) -> bool:
 
 def main(argv: List[str]):
     try:
-        opts, args = getopt.getopt(argv, 'hd:r:e:i:vo:l:w:', [
+        opts, args = getopt.getopt(argv, 'hd:r:e:i:Vo:l:w:v', [
             'help',
             'dat=',
             'regions=',
@@ -499,7 +501,8 @@ def main(argv: List[str]):
             'chunk-size=',
             'threads=',
             'header-file=',
-            'max-file-size='
+            'max-file-size=',
+            'version'
         ])
     except getopt.GetoptError as e:
         sys.exit(help_msg(e))
@@ -545,7 +548,11 @@ def main(argv: List[str]):
     global MAX_FILE_SIZE
     for opt, arg in opts:
         if opt in ('-h', '--help'):
-            sys.exit(help_msg())
+            print(help_msg())
+            sys.exit()
+        if opt in ('-v', '--version'):
+            print('1G1R ROM set generator v%s' % __version__)
+            sys.exit()
         if opt in ('-r', '--regions'):
             selected_regions = [x.strip().upper() for x in arg.split(',')
                                 if is_valid(x)]
@@ -577,7 +584,7 @@ def main(argv: List[str]):
         revision_asc |= opt == '--early-revisions'
         version_asc |= opt == '--early-versions'
         debug |= opt == '--debug'
-        verbose |= debug or opt in ('-v', '--verbose')
+        verbose |= debug or opt in ('-V', '--verbose')
         ignore_case |= opt == '--ignore-case'
         regex |= opt == '--regex'
         if opt == '--separator':
@@ -1171,7 +1178,10 @@ def help_msg(s: Optional[Union[str, Exception]] = None) -> str:
         '\t-h,--help\t\t'
         'Prints this usage message',
 
-        '\t-v,--verbose\t\t'
+        '\t-v,--version\t\t'
+        'Prints the version',
+
+        '\t-V,--verbose\t\t'
         'Logs more messages (useful when troubleshooting)',
 
         '\t--debug\t\t\t'
@@ -1190,7 +1200,7 @@ if __name__ == '__main__':
     if os.path.extsep in script_file:
         script_file = script_file[:script_file.rindex(os.path.extsep)]
     log_file = add_extension(script_file, 'log')
-    final_message = '\nExecution %s. Check the %s file for logs' \
+    final_message = '\nExecution %s. Check the %s file for logs.' \
                     % ('%s', log_file)
     try:
         try:
