@@ -7,7 +7,7 @@ import sys
 from io import BufferedIOBase
 from threading import current_thread
 from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
-    BinaryIO
+    BinaryIO, TextIO
 from zipfile import ZipFile, BadZipFile, ZipInfo
 
 from modules import datafile, header
@@ -35,9 +35,9 @@ NOT_PRERELEASE = "Z"
 
 AVOIDED_ROM_BASE = 1000
 
-NO_WARNING: bool = False
-
 RULES: List[Rule] = []
+
+LOG_FILE: Optional[TextIO] = None
 
 COUNTRY_REGION_CORRELATION = [
     # Language needs checking
@@ -132,10 +132,7 @@ def get_region_data(code: str) -> Optional[RegionData]:
             break
     if not region_data:
         # We don't know which region this is, but we should filter/classify it
-        if not NO_WARNING:
-            print(
-                'WARNING: unrecognized region (%s)' % code,
-                file=sys.stderr)
+        log('WARNING: unrecognized region (%s)' % code)
         region_data = RegionData(code, None, [])
         COUNTRY_REGION_CORRELATION.append(region_data)
     return region_data
@@ -276,14 +273,10 @@ def parse_games(
                 games[parent_name] = game_entries
             else:
                 games[parent_name].extend(game_entries)
-        elif not NO_WARNING:
-            print(
-                'WARNING [%s]: no recognizable regions found' % game.name,
-                file=sys.stderr)
-        if not game.rom and not NO_WARNING:
-            print(
-                'WARNING [%s]: no ROMs found in the DAT file' % game.name,
-                file=sys.stderr)
+        else:
+            log('WARNING [%s]: no recognizable regions found' % game.name)
+        if not game.rom:
+            log('WARNING [%s]: no ROMs found in the DAT file' % game.name)
     return games
 
 
@@ -398,12 +391,11 @@ def get_header_rules(root: datafile) -> List[Rule]:
             header_file = os.path.join('headers', root.header.clrmamepro.header)
             if os.path.isfile(header_file):
                 return header.parse_rules(header_file)
-            elif not NO_WARNING:
-                print(
+            else:
+                log(
                     'WARNING: could not find header file %s. '
                     'This may cause hashes to be calculated wrong'
-                    % header_file,
-                    file=sys.stderr)
+                    % header_file)
                 return []
 
 
@@ -464,7 +456,6 @@ def is_zip(file: str) -> bool:
 
 
 def main(argv: List[str]):
-    global NO_WARNING
     try:
         opts, args = getopt.getopt(argv, 'hd:r:e:i:vo:l:w:', [
             'help',
@@ -486,7 +477,7 @@ def main(argv: List[str]):
             'early-versions',
             'input-order',
             'extension=',
-            'use-hashes',
+            'no-scan',
             'input-dir=',
             'prefer=',
             'avoid=',
@@ -505,16 +496,13 @@ def main(argv: List[str]):
             'all-regions-with-lang',
             'debug',
             'move',
-            'no-warning',
             'chunk-size=',
             'threads=',
             'header-file=',
             'max-file-size='
         ])
     except getopt.GetoptError as e:
-        print(e, file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg(e))
 
     dat_file = ""
     filter_bios = False
@@ -532,7 +520,7 @@ def main(argv: List[str]):
     revision_asc = False
     version_asc = False
     verbose = False
-    use_hashes = False
+    no_scan = False
     input_order = False
     selected_regions: List[str] = []
     file_extension = ""
@@ -557,8 +545,7 @@ def main(argv: List[str]):
     global MAX_FILE_SIZE
     for opt, arg in opts:
         if opt in ('-h', '--help'):
-            print_help()
-            sys.exit()
+            sys.exit(help_msg())
         if opt in ('-r', '--regions'):
             selected_regions = [x.strip().upper() for x in arg.split(',')
                                 if is_valid(x)]
@@ -570,15 +557,10 @@ def main(argv: List[str]):
             try:
                 language_weight = int(arg.strip())
                 if language_weight <= 0:
-                    print(
-                        'language-weight must be a positive integer',
-                        file=sys.stderr)
-                    print_help()
-                    sys.exit(1)
+                    sys.exit(help_msg(
+                        'language-weight must be a positive integer'))
             except ValueError:
-                print('invalid value for language-weight', file=sys.stderr)
-                print_help()
-                sys.exit(1)
+                sys.exit(help_msg('invalid value for language-weight'))
         prioritize_languages |= opt == '--prioritize-languages'
         filter_bios |= opt in ('--no-bios', '--no-all')
         filter_program |= opt in ('--no-program', '--no-all')
@@ -594,7 +576,8 @@ def main(argv: List[str]):
         all_regions_with_lang |= opt == '--all-regions-with-lang'
         revision_asc |= opt == '--early-revisions'
         version_asc |= opt == '--early-versions'
-        verbose |= opt in ('-v', '--verbose')
+        debug |= opt == '--debug'
+        verbose |= debug or opt in ('-v', '--verbose')
         ignore_case |= opt == '--ignore-case'
         regex |= opt == '--regex'
         if opt == '--separator':
@@ -605,12 +588,10 @@ def main(argv: List[str]):
         if opt in ('-d', '--dat'):
             dat_file = os.path.expanduser(arg.strip())
             if not os.path.isfile(dat_file):
-                print('invalid DAT file: %s' % dat_file, file=sys.stderr)
-                print_help()
-                sys.exit(1)
+                sys.exit(help_msg('invalid DAT file: %s' % dat_file))
         if opt in ('-e', '--extension'):
             file_extension = arg.strip().lstrip(os.path.extsep)
-        use_hashes |= opt == '--use-hashes'
+        no_scan |= opt == '--no-scan'
         if opt == '--prefer':
             prefer_str = arg
         if opt == '--avoid':
@@ -622,26 +603,14 @@ def main(argv: List[str]):
         if opt in ('-i', '--input-dir'):
             input_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(input_dir):
-                print(
-                    'invalid input directory: %s' % input_dir,
-                    file=sys.stderr)
-                print_help()
-                sys.exit(1)
+                sys.exit(help_msg('invalid input directory: %s' % input_dir))
         if opt in ('-o', '--output-dir'):
             output_dir = os.path.expanduser(arg.strip())
             if not os.path.isdir(output_dir):
                 try:
                     os.makedirs(output_dir)
                 except OSError:
-                    print(
-                        'invalid output DIR: %s' % output_dir,
-                        file=sys.stderr)
-                    print_help()
-                    sys.exit(1)
-        debug |= opt == '--debug'
-        NO_WARNING |= opt == '--no-warning'
-        if debug:
-            verbose = True
+                    sys.exit(help_msg('invalid output DIR: %s' % output_dir))
         move |= opt == '--move'
         if opt == '--chunk-size':
             global CHUNK_SIZE
@@ -651,104 +620,65 @@ def main(argv: List[str]):
         if opt == '--header-file':
             header_file = os.path.expanduser(arg.strip())
             if not os.path.isfile(header_file):
-                print('invalid header file: %s' % header_file, file=sys.stderr)
-                print_help()
-                sys.exit(1)
+                sys.exit(help_msg('invalid header file: %s' % header_file))
             RULES = header.parse_rules(header_file)
         if opt == '--max-file-size':
             MAX_FILE_SIZE = int(arg)
 
+    if not no_scan and not input_dir:
+        print(
+            'No input directory was provided. File scanning is disabled!',
+            file=sys.stderr)
+    use_hashes = bool(not no_scan and input_dir)
     if file_extension and use_hashes:
-        print('extensions cannot be used with hashes', file=sys.stderr)
-        print_help()
-        sys.exit(1)
-    if not input_dir and use_hashes:
-        print('hashes can only be used with an input file', file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('extensions cannot be used when scanning'))
     if not dat_file:
-        print('DAT file is required', file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('DAT file is required'))
     if not selected_regions:
-        print('invalid region selection', file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('invalid region selection'))
     if (revision_asc or version_asc) and input_order:
-        print(
+        sys.exit(help_msg(
             'early-revisions and early-versions are mutually exclusive '
-            'with input-order',
-            file=sys.stderr)
-        print_help()
-        sys.exit(1)
+            'with input-order'))
     if (revision_asc or version_asc) and prefer_parents:
-        print(
+        sys.exit(help_msg(
             'early-revisions and early-versions are mutually exclusive '
-            'with prefer-parents',
-            file=sys.stderr)
-        print_help()
-        sys.exit(1)
+            'with prefer-parents'))
     if prefer_parents and input_order:
-        print(
-            'prefer-parents is mutually exclusive with input-order',
-            file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg(
+            'prefer-parents is mutually exclusive with input-order'))
     if output_dir and not input_dir:
-        print('output-dir requires an input-dir', file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('output-dir requires an input-dir'))
     if ignore_case and not prefer_str and not avoid_str and not exclude_str:
-        print(
+        sys.exit(help_msg(
             "ignore-case only works if there's a prefer, "
-            "avoid or exclude list too",
-            file=sys.stderr)
-        print_help()
-        sys.exit(1)
+            "avoid or exclude list too"))
     if regex and not prefer_str and not avoid_str and not exclude_str:
-        print(
-            "regex only works if there's a prefer, avoid or exclude list too",
-            file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg(
+            "regex only works if there's a prefer, avoid or exclude list too"))
     if all_regions and all_regions_with_lang:
-        print(
-            'all-regions is mutually exclusive with all-regions-with-lang',
-            file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg(
+            'all-regions is mutually exclusive with all-regions-with-lang'))
     if THREADS <= 0:
-        print('Number of threads should be > 0', file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('Number of threads should be > 0'))
     if MAX_FILE_SIZE <= 0:
-        print('Maximum file size should be > 0', file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('Maximum file size should be > 0'))
     try:
         prefer = parse_list(prefer_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
-        print('invalid prefer list: %s' % e, file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('invalid prefer list: %s' % e))
     try:
         avoid = parse_list(avoid_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
-        print('invalid avoid list: %s' % e, file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('invalid avoid list: %s' % e))
     try:
         exclude = parse_list(exclude_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
-        print('invalid exclude list: %s' % e, file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('invalid exclude list: %s' % e))
     try:
         exclude_after = parse_list(exclude_after_str, ignore_case, regex, sep)
     except (re.error, OSError) as e:
-        print('invalid exclude-after list: %s' % e, file=sys.stderr)
-        print_help()
-        sys.exit(1)
+        sys.exit(help_msg('invalid exclude-after list: %s' % e))
 
     validate_dat(dat_file, use_hashes)
 
@@ -797,7 +727,7 @@ def main(argv: List[str]):
                 + "".join(enabled_filters),
                 file=sys.stderr)
         print(
-            'Sorting with the following criteria:\n'
+            '\nSorting with the following criteria:\n'
             '\t1. Good dumps\n'
             '\t2. %s\n'
             '\t3. Non-avoided items%s\n'
@@ -867,18 +797,18 @@ def main(argv: List[str]):
             version_asc)
         games.sort(key=key_generator.generate)
         if verbose:
-            print(
-                'Candidate order for [%s]: %s' % (key, [g.name for g in games]),
-                file=sys.stderr)
+            log(
+                'INFO: Candidate order for [%s]: %s'
+                % (key, [g.name for g in games]))
 
     for game, entries in parsed_games.items():
         if not all_regions:
             entries = [x for x in entries if x.score.region != UNSELECTED
                        or (all_regions_with_lang and x.score.languages < 0)]
         if debug:
-            print(
-                'Handling candidates for game [%s]: %s' % (game, entries),
-                file=sys.stderr)
+            log(
+                'DEBUG: Handling candidates for game [%s]: %s'
+                % (game, entries))
         size = len(entries)
         for i in range(0, size):
             entry = entries[i]
@@ -920,25 +850,15 @@ def main(argv: List[str]):
                                 move)
                             copied_files.add(rom_input_path)
                     else:
-                        if not NO_WARNING:
-                            if verbose:
-                                print(
-                                    'WARNING [%s]: ROM file [%s] for candidate '
-                                    '[%s] not found' %
-                                    (game, entry_rom.name, entry.name),
-                                    file=sys.stderr)
-                            else:
-                                print(
-                                    'WARNING: ROM file [%s] for candidate [%s] '
-                                    'not found' % (entry_rom.name, entry.name),
-                                    file=sys.stderr)
+                        log(
+                            'WARNING: ROM file [%s] for candidate [%s] '
+                            'not found' % (entry_rom.name, entry.name))
                 if copied_files:
                     break
-                elif not NO_WARNING and i == size - 1:
-                    print(
+                elif i == size - 1:
+                    log(
                         'WARNING: no eligible candidates for [%s] '
-                        'have been found!' % game,
-                        file=sys.stderr)
+                        'have been found!' % game)
             elif input_dir:
                 file_name = add_extension(entry.name, file_extension)
                 full_path = os.path.join(input_dir, file_name)
@@ -964,35 +884,19 @@ def main(argv: List[str]):
                                 shutil.copystat(full_path, rom_output_dir)
                             else:
                                 print(file_name + os.path.sep + entry_rom.name)
-                        elif not NO_WARNING:
-                            if verbose:
-                                print(
-                                    'WARNING [%s]: ROM file [%s] for candidate '
-                                    '[%s] not found' %
-                                    (game, entry_rom.name, file_name),
-                                    file=sys.stderr)
-                            else:
-                                print(
-                                    'WARNING: ROM file [%s] for candidate [%s] '
-                                    'not found' % (entry_rom.name, file_name),
-                                    file=sys.stderr)
+                        else:
+                            log(
+                                'WARNING: ROM file [%s] for candidate [%s] '
+                                'not found' % (entry_rom.name, file_name))
                     break
-                elif not NO_WARNING:
-                    if verbose:
-                        print(
-                            'WARNING [%s]: candidate [%s] not found, '
-                            'trying next one' % (game, file_name),
-                            file=sys.stderr)
-                    else:
-                        print(
-                            'WARNING: candidate [%s] not found, '
-                            'trying next one' % file_name,
-                            file=sys.stderr)
+                else:
+                    log(
+                        'WARNING: candidate [%s] not found, trying next one'
+                        % file_name)
                     if i == size - 1:
-                        print(
+                        log(
                             'WARNING: no eligible candidates for [%s] '
-                            'have been found!' % game,
-                            file=sys.stderr)
+                            'have been found!' % game)
             else:
                 print(add_extension(entry.name, file_extension))
                 break
@@ -1080,248 +984,228 @@ def transfer_file(
             file=sys.stderr)
 
 
-def print_help():
-    print(
+def log(s: str) -> None:
+    print(s, file=LOG_FILE if LOG_FILE else sys.stderr)
+
+
+def help_msg(s: Optional[Union[str, Exception]] = None) -> str:
+    help_str = '\n'.join([
         'Usage: python3 %s [options] -d input_file.dat' % sys.argv[0],
-        file=sys.stderr)
-    print('Options:', file=sys.stderr)
-    print('\n# ROM selection and file manipulation:', file=sys.stderr)
-    print(
+
+        'Options:',
+
+        '\n# ROM selection and file manipulation:',
+
         '\t-r,--regions=REGIONS\t'
-        'A list of regions separated by commas.'
+        'A list of regions separated by commas'
         '\n\t\t\t\t'
         'Ex.: -r USA,EUR,JPN',
-        file=sys.stderr)
-    print(
+
         '\t-l,--languages=LANGS\t'
-        'An optional list of languages separated by commas.'
+        'An optional list of languages separated by commas'
         '\n\t\t\t\t'
         'Ex.: -l en,es,ru',
-        file=sys.stderr)
-    print(
+
         '\t-d,--dat=DAT_FILE\t'
         'The DAT file to be used'
         '\n\t\t\t\t'
         'Ex.: -d snes.dat',
-        file=sys.stderr)
-    print(
+
         '\t-i,--input-dir=PATH\t'
         'Provides an input directory (i.e.: where your ROMs are)'
         '\n\t\t\t\t'
         'Ex.: -i "C:\\Users\\John\\Downloads\\Emulators\\SNES\\ROMs"',
-        file=sys.stderr)
-    print(
-        '\t-e,--extension=EXT\t'
-        'ROM names will use this extension.'
-        '\n\t\t\t\t'
-        'Ex.: -e zip',
-        file=sys.stderr)
-    print(
+
         '\t-o,--output-dir=PATH\t'
         'If provided, ROMs will be copied to an output directory'
         '\n\t\t\t\t'
         'Ex.: -o "C:\\Users\\John\\Downloads\\Emulators\\SNES\\ROMs\\1G1R"',
-        file=sys.stderr)
-    print(
+
         '\t--move\t\t\t'
         'If set, ROMs will be moved, instead of copied, '
         'to the output directory',
-        file=sys.stderr)
-    print(
-        '\t--use-hashes\t\t'
-        'If set, ROM file hashes are going to be used to identify candidates',
-        file=sys.stderr)
-    print(
+
+        '\n# File scanning:',
+
         '\t--header-file=PATH\t'
-        'Sets the header file to be used with headered ROMs'
+        'Sets the header file to be used when scanning headered ROMs'
         '\n\t\t\t\t'
         'You can also just add the file to the headers directory',
-        file=sys.stderr)
-    print(
+
         '\t--threads=THREADS\t'
-        'When using hashes, sets the number of I/O threads to be used to read '
-        'files'
+        'Sets the number of I/O threads to be used to read files'
         '\n\t\t\t\t'
         'Default: 4',
-        file=sys.stderr)
-    print(
+
         '\t--chunk-size=BYTES\t'
-        'When using hashes, sets the chunk size for buffered I/O operations '
-        '(in bytes)'
+        'Sets the chunk size for buffered I/O operations (bytes)'
         '\n\t\t\t\t'
         'Default: 33554432 (32 MiB)',
-        file=sys.stderr)
-    print(
+
         '\t--max-file-size=BYTES\t'
-        'When using hashes, sets the maximum file size for header '
-        'information processing (in bytes)'
+        'Sets the maximum file size for header information processing (bytes)'
         '\n\t\t\t\t'
         'Default: 268435456 (256 MiB)',
-        file=sys.stderr)
-    print('\n# Filtering:', file=sys.stderr)
-    print(
+
+        '\t--no-scan\t\t'
+        'If set, ROMs are not scanned and only file names are used to identify '
+        'candidates',
+
+        '\t-e,--extension=EXT\t'
+        'When not scanning, ROM file names will use this extension'
+        '\n\t\t\t\t'
+        'Ex.: -e zip',
+
+        '\n# Filtering:',
+
         '\t--no-bios\t\t'
         'Filter out BIOSes',
-        file=sys.stderr)
-    print(
+
         '\t--no-program\t\t'
         'Filter out Programs and Test Programs',
-        file=sys.stderr)
-    print(
+
         '\t--no-enhancement-chip\t'
         'Filter out Ehancement Chips',
-        file=sys.stderr)
-    print(
+
         '\t--no-proto\t\t'
         'Filter out prototype ROMs',
-        file=sys.stderr)
-    print(
+
         '\t--no-beta\t\t'
         'Filter out beta ROMs',
-        file=sys.stderr)
-    print(
+
         '\t--no-demo\t\t'
         'Filter out demo ROMs',
-        file=sys.stderr)
-    print(
+
         '\t--no-sample\t\t'
         'Filter out sample ROMs',
-        file=sys.stderr)
-    print(
+
         '\t--no-pirate\t\t'
         'Filter out pirate ROMs',
-        file=sys.stderr)
-    print(
+
         '\t--no-promo\t\t'
         'Filter out promotion ROMs',
-        file=sys.stderr)
-    print(
+
         '\t--no-all\t\t'
         'Apply all filters above (WILL STILL ALLOW UNLICENSED ROMs)',
-        file=sys.stderr)
-    print(
+
         '\t--no-unlicensed\t\t'
         'Filter out unlicensed ROMs',
-        file=sys.stderr)
-    print(
+
         '\t--all-regions\t\t'
         'Includes files of unselected regions, if a selected one is not '
         'available',
-        file=sys.stderr)
-    print(
+
         '\t--all-regions-with-lang\t'
         'Same as --all-regions, but only if a ROM has at least one selected '
         'language',
-        file=sys.stderr)
-    print('\n# Adjustment and customization:', file=sys.stderr)
-    print(
+
+        '\n# Adjustment and customization:',
+
         '\t-w,--language-weight=N\t'
         'The degree of priority the first selected languages receive over the '
-        'latter ones.'
+        'latter ones'
         '\n\t\t\t\t'
         'Default: 3',
-        file=sys.stderr)
-    print(
+
         '\t--prioritize-languages\t'
         'If set, ROMs matching more languages will be prioritized over ROMs '
         'matching regions',
-        file=sys.stderr)
-    print(
+
         '\t--early-revisions\t'
         'ROMs of earlier revisions will be prioritized',
-        file=sys.stderr)
-    print(
+
         '\t--early-versions\t'
         'ROMs of earlier versions will be prioritized',
-        file=sys.stderr)
-    print(
+
         '\t--input-order\t\t'
         'ROMs will be prioritized by the order they '
         'appear in the DAT file',
-        file=sys.stderr)
-    print(
+
         '\t--prefer-parents\t'
         'Parent ROMs will be prioritized over clones',
-        file=sys.stderr)
-    print(
+
         '\t--prefer-prereleases\t'
         'Prerelease (Beta, Proto, etc.) ROMs will be prioritized',
-        file=sys.stderr)
-    print(
+
         '\t--prefer=WORDS\t\t'
         'ROMs containing these words will be preferred'
         '\n\t\t\t\t'
         'Ex.: --prefer "Virtual Console,GameCube"'
         '\n\t\t\t\t'
         'Ex.: --prefer "file:prefer.txt" ',
-        file=sys.stderr)
-    print(
+
         '\t--avoid=WORDS\t\t'
         'ROMs containing these words will be avoided (but not excluded).'
         '\n\t\t\t\t'
         'Ex.: --avoid "Virtual Console,GameCube"'
         '\n\t\t\t\t'
         'Ex.: --avoid "file:avoid.txt" ',
-        file=sys.stderr)
-    print(
+
         '\t--exclude=WORDS\t\t'
         'ROMs containing these words will be excluded.'
         '\n\t\t\t\t'
         'Ex.: --exclude "Virtual Console,GameCube"'
         '\n\t\t\t\t'
         'Ex.: --exclude "file:exclude.txt"',
-        file=sys.stderr)
-    print(
+
         '\t--exclude-after=WORDS\t'
         'If the best candidate contains these words, skip all candidates.'
         '\n\t\t\t\t'
         'Ex.: --exclude-after "Virtual Console,GameCube"'
         '\n\t\t\t\t'
         'Ex.: --exclude-after "file:exclude-after.txt"',
-        file=sys.stderr)
-    print(
+
         '\t--ignore-case\t\t'
         'If set, the avoid and exclude lists will be case-insensitive',
-        file=sys.stderr)
-    print(
+
         '\t--regex\t\t\t'
         'If set, the avoid and exclude lists are used as regular expressions',
-        file=sys.stderr)
-    print(
+
         '\t--separator=SEP\t\t'
         'Provides a separator for the avoid, exclude & exclude-after options.'
         '\n\t\t\t\t'
         'Default: ","',
-        file=sys.stderr)
-    print('\n# Help and debugging:', file=sys.stderr)
-    print(
+
+        '\n# Help and debugging:',
+
         '\t-h,--help\t\t'
         'Prints this usage message',
-        file=sys.stderr)
-    print(
+
         '\t-v,--verbose\t\t'
-        'Prints more messages (useful when troubleshooting)',
-        file=sys.stderr)
-    print(
+        'Logs more messages (useful when troubleshooting)',
+
         '\t--debug\t\t\t'
-        'Prints even more messages (useful when troubleshooting)',
-        file=sys.stderr)
-    print(
-        '\t--no-warning\t\t'
-        'Suppresses all warnings',
-        file=sys.stderr)
-    print(
+        'Logs even more messages (useful when troubleshooting)',
+
         '\n# See https://github.com/andrebrait/1g1r-romset-generator/wiki '
-        'for more details',
-        file=sys.stderr)
+        'for more details'])
+    if s:
+        return '%s\n%s' % (s, help_str)
+    else:
+        return help_str
 
 
 if __name__ == '__main__':
+    script_file = sys.argv[0]
+    if os.path.extsep in script_file:
+        script_file = script_file[:script_file.rindex(os.path.extsep)]
+    log_file = add_extension(script_file, 'log')
+    final_message = '\nExecution %s. Check the %s file for logs' \
+                    % ('%s', log_file)
     try:
+        try:
+            LOG_FILE = open(log_file, 'w')
+        except OSError as w_e:
+            print(
+                'ERROR: could not open %s file for writing: %s'
+                % (log_file, w_e),
+                file=sys.stderr)
         main(sys.argv[1:])
+        print(final_message % 'finished', file=sys.stderr)
     except KeyboardInterrupt:
+        final_message = final_message % 'interrupted'
         if PROGRESSBAR:
             with PROGRESSBAR.lock:
-                sys.exit('')
+                sys.exit('\n%s' % final_message)
         else:
-            sys.exit('')
+            sys.exit('\n%s' % final_message)

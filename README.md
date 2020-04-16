@@ -17,28 +17,30 @@ Usage: python3 generate.py [options] -d input_file.dat
 Options:
 
 # ROM selection and file manipulation:
-        -r,--regions=REGIONS    A list of regions separated by commas.
+        -r,--regions=REGIONS    A list of regions separated by commas
                                 Ex.: -r USA,EUR,JPN
-        -l,--languages=LANGS    An optional list of languages separated by commas.
+        -l,--languages=LANGS    An optional list of languages separated by commas
                                 Ex.: -l en,es,ru
         -d,--dat=DAT_FILE       The DAT file to be used
                                 Ex.: -d snes.dat
         -i,--input-dir=PATH     Provides an input directory (i.e.: where your ROMs are)
                                 Ex.: -i "C:\Users\John\Downloads\Emulators\SNES\ROMs"
-        -e,--extension=EXT      ROM names will use this extension.
-                                Ex.: -e zip
         -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
                                 Ex.: -o "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
-        --use-hashes            If set, ROM file hashes are going to be used to identify candidates
-        --header-file=PATH      Sets the header file to be used with headered ROMs
+
+# File scanning:
+        --header-file=PATH      Sets the header file to be used when scanning headered ROMs
                                 You can also just add the file to the headers directory
-        --threads=THREADS       When using hashes, sets the number of I/O threads to be used to read files
+        --threads=THREADS       Sets the number of I/O threads to be used to read files
                                 Default: 4
-        --chunk-size=BYTES      When using hashes, sets the chunk size for buffered I/O operations (in bytes)
+        --chunk-size=BYTES      Sets the chunk size for buffered I/O operations (bytes)
                                 Default: 33554432 (32 MiB)
-        --max-file-size=BYTES   When using hashes, sets the maximum file size for header information processing (in bytes)
+        --max-file-size=BYTES   Sets the maximum file size for header information processing (bytes)
                                 Default: 268435456 (256 MiB)
+        --no-scan               If set, ROMs are not scanned and only file names are used to identify candidates
+        -e,--extension=EXT      When not scanning, ROM file names will use this extension
+                                Ex.: -e zip
 
 # Filtering:
         --no-bios               Filter out BIOSes
@@ -56,7 +58,7 @@ Options:
         --all-regions-with-lang Same as --all-regions, but only if a ROM has at least one selected language
 
 # Adjustment and customization:
-        -w,--language-weight=N  The degree of priority the first selected languages receive over the latter ones.
+        -w,--language-weight=N  The degree of priority the first selected languages receive over the latter ones
                                 Default: 3
         --prioritize-languages  If set, ROMs matching more languages will be prioritized over ROMs matching regions
         --early-revisions       ROMs of earlier revisions will be prioritized
@@ -83,9 +85,8 @@ Options:
 
 # Help and debugging:
         -h,--help               Prints this usage message
-        -v,--verbose            Prints more messages (useful when troubleshooting)
-        --debug                 Prints even more messages (useful when troubleshooting)
-        --no-warning            Suppresses all warnings
+        -v,--verbose            Logs more messages (useful when troubleshooting)
+        --debug                 Logs even more messages (useful when troubleshooting)
 ```
 
 #### Motivation

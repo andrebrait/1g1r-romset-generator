@@ -7,3 +7,4 @@
 # Python virtualenv
 .env
 __pycache__
+generate.log
