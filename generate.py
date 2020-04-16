@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import getopt
 import hashlib
 import os
