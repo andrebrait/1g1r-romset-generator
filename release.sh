@@ -21,7 +21,7 @@ git push --follow-tags
 
 echo "Generating compressed archive ${ZIP_FILENAME}"
 rm "${ZIP_FILENAME}" 2>/dev/null
-zip -rq "${ZIP_FILENAME}" generate.py LICENSE README.md headers modules -x "*__pycache__*"
+zip -r "${ZIP_FILENAME}" generate.py LICENSE README.md headers modules -x "*__pycache__*"
 
 echo "Changing version to ${NEXT_VERSION}"
 sed -E -i.releaseBackup "s/^__version__ = .*$/__version__ = '${NEXT_VERSION}'/" generate.py
