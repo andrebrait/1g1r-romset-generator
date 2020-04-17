@@ -20,7 +20,7 @@ echo "Pushing changes"
 git push --follow-tags
 
 echo "Generating compressed archive ${ZIP_FILENAME}"
-rm "${ZIP_FILENAME}" 2>/dev/null
+[ -f "${ZIP_FILENAME}" ] && rm "${ZIP_FILENAME}" 2>/dev/null
 zip -r "${ZIP_FILENAME}" generate.py LICENSE README.md headers modules -x "*__pycache__*"
 
 echo "Changing version to ${NEXT_VERSION}"
