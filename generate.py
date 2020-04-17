@@ -1037,7 +1037,7 @@ def help_msg(s: Optional[Union[str, Exception]] = None) -> str:
         '\t-l,--languages=LANGS\t'
         'An optional list of languages separated by commas'
         '\n\t\t\t\t'
-        'This is a secondary priorization criteria, not a filter'
+        'This is a secondary prioritization criteria, not a filter'
         '\n\t\t\t\t'
         'Ex.: -l en,es,ru',
 

@@ -20,7 +20,7 @@ Options:
         -r,--regions=REGIONS    A list of regions separated by commas
                                 Ex.: -r USA,EUR,JPN
         -l,--languages=LANGS    An optional list of languages separated by commas
-                                This is a secondary priorization criteria, not a filter
+                                This is a secondary prioritization criteria, not a filter
                                 Ex.: -l en,es,ru
         -d,--dat=DAT_FILE       The DAT file to be used
                                 Ex.: -d snes.dat
