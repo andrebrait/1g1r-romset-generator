@@ -178,13 +178,17 @@ def validate_dat(file: str, use_hashes: bool) -> None:
             'ERROR: Cannot use hash information because DAT lacks SHA1 digests '
             'for [%s].' % offending_entry)
     if not has_cloneof:
-        print('This DAT *seems* to be a Standard DAT')
-        print('A Parent/Clone XML DAT is required to generate a 1G1R ROM set')
+        print('This DAT *seems* to be a Standard DAT', file=sys.stderr)
+        print(
+            'A Parent/Clone XML DAT is required to generate a 1G1R ROM set',
+            file=sys.stderr)
         if use_hashes:
             print(
                 'If you are using this to rename files based on their hashes, '
-                'a Standard DAT is enough')
-        answer = input('Do you want to continue anyway? (y/n)\n')
+                'a Standard DAT is enough',
+                file=sys.stderr)
+        print('Do you want to continue anyway? (y/n)', file=sys.stderr)
+        answer = input()
         if answer.strip() not in ('y', 'Y'):
             sys.exit()
 
@@ -380,7 +384,7 @@ def index_files(
         for t in threads:
             t.join()
 
-        print('', file=sys.stderr)
+        print('\n', file=sys.stderr)
 
         for intermediate_result in intermediate_results:
             for key, value in intermediate_result.items():
@@ -638,6 +642,10 @@ def main(argv: List[str]):
         print(
             'No input directory was provided. File scanning is disabled!',
             file=sys.stderr)
+        print('Do you want to continue anyway? (y/n)', file=sys.stderr)
+        answer = input()
+        if answer.strip() not in ('y', 'Y'):
+            sys.exit()
     use_hashes = bool(not no_scan and input_dir)
     if file_extension and use_hashes:
         sys.exit(help_msg('extensions cannot be used when scanning'))
@@ -728,15 +736,16 @@ def main(argv: List[str]):
             (bool(exclude_str), 'Excluded ROMs by name'),
             (bool(exclude_after_str), 'Excluded ROMs by name (after selection)')
         ]
-        enabled_filters = ['\t%d. %s\n' % (i + 1, filters[i][1])
-                           for i in range(0, len(filters)) if filters[i][0]]
-        if enabled_filters:
+        active_filters = [f[1] for f in filters if f[0]]
+        if active_filters:
             print(
-                'Filtering out:\n'
-                + "".join(enabled_filters),
+                'Filtering out:\n%s'
+                % "".join(
+                    ['\t%d. %s\n' % (i[0] + 1, i[1])
+                     for i in enumerate(active_filters)]),
                 file=sys.stderr)
         print(
-            '\nSorting with the following criteria:\n'
+            'Sorting with the following criteria:\n'
             '\t1. Good dumps\n'
             '\t2. %s\n'
             '\t3. Non-avoided items%s\n'
@@ -864,10 +873,14 @@ def main(argv: List[str]):
                             'not found' % (entry_rom.name, entry.name))
                 if copied_files:
                     break
-                elif i == size - 1:
+                else:
                     log(
-                        'WARNING: no eligible candidates for [%s] '
-                        'have been found!' % game)
+                        'WARNING: candidate [%s] not found, trying next one'
+                        % entry.name)
+                    if i == size - 1:
+                        log(
+                            'WARNING: no eligible candidates for [%s] '
+                            'have been found!' % game)
             elif input_dir:
                 file_name = add_extension(entry.name, file_extension)
                 full_path = os.path.join(input_dir, file_name)
