@@ -20,6 +20,7 @@ Options:
         -r,--regions=REGIONS    A list of regions separated by commas
                                 Ex.: -r USA,EUR,JPN
         -l,--languages=LANGS    An optional list of languages separated by commas
+                                This is a secondary priorization criteria, not a filter
                                 Ex.: -l en,es,ru
         -d,--dat=DAT_FILE       The DAT file to be used
                                 Ex.: -d snes.dat
@@ -56,6 +57,7 @@ Options:
         --no-unlicensed         Filter out unlicensed ROMs
         --all-regions           Includes files of unselected regions, if a selected one is not available
         --all-regions-with-lang Same as --all-regions, but only if a ROM has at least one selected language
+        --only-selected-lang    Filter out ROMs without any selected languages
 
 # Adjustment and customization:
         -w,--language-weight=N  The degree of priority the first selected languages receive over the latter ones

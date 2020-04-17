@@ -508,7 +508,8 @@ def main(argv: List[str]):
             'threads=',
             'header-file=',
             'max-file-size=',
-            'version'
+            'version',
+            'only-selected-lang'
         ])
     except getopt.GetoptError as e:
         sys.exit(help_msg(e))
@@ -526,6 +527,7 @@ def main(argv: List[str]):
     filter_sample = False
     all_regions = False
     all_regions_with_lang = False
+    only_selected_lang = False
     revision_asc = False
     version_asc = False
     verbose = False
@@ -552,6 +554,7 @@ def main(argv: List[str]):
     global THREADS
     global RULES
     global MAX_FILE_SIZE
+    global CHUNK_SIZE
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print(help_msg())
@@ -587,6 +590,7 @@ def main(argv: List[str]):
         filter_unlicensed |= opt == '--no-unlicensed'
         all_regions |= opt == '--all-regions'
         all_regions_with_lang |= opt == '--all-regions-with-lang'
+        only_selected_lang |= opt == '--only-selected-lang'
         revision_asc |= opt == '--early-revisions'
         version_asc |= opt == '--early-versions'
         debug |= opt == '--debug'
@@ -626,7 +630,6 @@ def main(argv: List[str]):
                     sys.exit(help_msg('invalid output DIR: %s' % output_dir))
         move |= opt == '--move'
         if opt == '--chunk-size':
-            global CHUNK_SIZE
             CHUNK_SIZE = int(arg)
         if opt == '--threads':
             THREADS = int(arg)
@@ -733,6 +736,7 @@ def main(argv: List[str]):
             (filter_unlicensed, 'Unlicensed ROMs'),
             (filter_pirate, 'Pirate ROMs'),
             (filter_promo, 'Promo ROMs'),
+            (only_selected_lang, 'ROMs not matching selected languages'),
             (bool(exclude_str), 'Excluded ROMs by name'),
             (bool(exclude_after_str), 'Excluded ROMs by name (after selection)')
         ]
@@ -819,9 +823,12 @@ def main(argv: List[str]):
                 'INFO: Candidate order for [%s]: %s'
                 % (key, [g.name for g in games]))
 
-    for game, entries in parsed_games.items():
+    printed_items: List[str] = []
+    for game in sorted(parsed_games.keys()):
+        entries = parsed_games[game]
         if not all_regions:
             entries = [x for x in entries if x.score.region != UNSELECTED
+                       and (not only_selected_lang or x.score.languages < 0)
                        or (all_regions_with_lang and x.score.languages < 0)]
         if debug:
             log(
@@ -843,7 +850,7 @@ def main(argv: List[str]):
                         file = file_relative_to_input(rom_input_path, input_dir)
                         if not output_dir:
                             if rom_input_path not in copied_files:
-                                print(file)
+                                printed_items.append(file)
                                 copied_files.add(rom_input_path)
                         elif rom_input_path not in copied_files:
                             if not is_zip_file \
@@ -888,7 +895,7 @@ def main(argv: List[str]):
                     if output_dir:
                         transfer_file(full_path, output_dir, move)
                     else:
-                        print(file_name)
+                        printed_items.append(file_name)
                     break
                 elif os.path.isdir(full_path):
                     for entry_rom in entry.roms:
@@ -905,7 +912,8 @@ def main(argv: List[str]):
                                     move)
                                 shutil.copystat(full_path, rom_output_dir)
                             else:
-                                print(file_name + os.path.sep + entry_rom.name)
+                                printed_items.append(
+                                    file_name + os.path.sep + entry_rom.name)
                         else:
                             log(
                                 'WARNING: ROM file [%s] for candidate [%s] '
@@ -920,8 +928,11 @@ def main(argv: List[str]):
                             'WARNING: no eligible candidates for [%s] '
                             'have been found!' % game)
             else:
-                print(add_extension(entry.name, file_extension))
+                printed_items.append(add_extension(entry.name, file_extension))
                 break
+    printed_items.sort()
+    for item in printed_items:
+        print(item)
 
 
 def add_extension(file_name: str, file_extension: str) -> str:
@@ -1026,6 +1037,8 @@ def help_msg(s: Optional[Union[str, Exception]] = None) -> str:
         '\t-l,--languages=LANGS\t'
         'An optional list of languages separated by commas'
         '\n\t\t\t\t'
+        'This is a secondary priorization criteria, not a filter'
+        '\n\t\t\t\t'
         'Ex.: -l en,es,ru',
 
         '\t-d,--dat=DAT_FILE\t'
@@ -1120,6 +1133,9 @@ def help_msg(s: Optional[Union[str, Exception]] = None) -> str:
         '\t--all-regions-with-lang\t'
         'Same as --all-regions, but only if a ROM has at least one selected '
         'language',
+
+        '\t--only-selected-lang\t'
+        'Filter out ROMs without any selected languages',
 
         '\n# Adjustment and customization:',
 
