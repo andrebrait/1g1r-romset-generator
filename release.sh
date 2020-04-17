@@ -24,7 +24,7 @@ echo "Generating compressed archive ${ZIP_FILENAME}"
 zip -r "${ZIP_FILENAME}" generate.py LICENSE README.md headers modules -x "*__pycache__*"
 
 echo "Changing version to ${NEXT_VERSION}"
-sed -E -i.releaseBackup "s/^__version__ = .*$/__version__ = '${NEXT_VERSION}'/" generate.py
+sed -E -i "s/^__version__ = .*$/__version__ = '${NEXT_VERSION}'/" generate.py
 
 echo "Committing changes"
 git add generate.py
