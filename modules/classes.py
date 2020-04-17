@@ -92,7 +92,17 @@ class GameEntry:
         self.score: Optional[Score] = None
 
     def __repr__(self) -> str:
-        return str(self.__dict__)
+        return str({i: GameEntry.__unpack_roms__(i, j)
+                    for i, j in self.__dict__.items()})
+
+    @staticmethod
+    def __unpack_roms__(i, j):
+        if i == 'roms':
+            return [{
+                ji: jj
+                for ji, jj in r.__dict__.items() if not ji.endswith('_')
+            } for r in j]
+        return j
 
 
 class GameEntryHelper:
