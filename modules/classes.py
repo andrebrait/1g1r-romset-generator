@@ -1,4 +1,5 @@
 import sys
+from json.encoder import JSONEncoder
 from threading import Lock, Thread
 from typing import Optional, List, Pattern, TextIO, Tuple, Any
 
@@ -54,9 +55,6 @@ class Score:
         self.beta = beta
         self.proto = proto
 
-    def __repr__(self) -> str:
-        return str(self.__dict__)
-
 
 class GameEntry:
     def __init__(
@@ -90,19 +88,6 @@ class GameEntry:
         self.name = name
         self.roms = roms
         self.score: Optional[Score] = None
-
-    def __repr__(self) -> str:
-        return str({i: GameEntry.__unpack_roms__(i, j)
-                    for i, j in self.__dict__.items()})
-
-    @staticmethod
-    def __unpack_roms__(i, j):
-        if i == 'roms':
-            return [{
-                ji: jj
-                for ji, jj in r.__dict__.items() if not ji.endswith('_')
-            } for r in j]
-        return j
 
 
 class GameEntryHelper:
@@ -272,3 +257,18 @@ class MultiThreadedProgressBar:
                     diff),
                 end='\r',
                 file=output_file)
+
+
+class CustomJsonEncoder(JSONEncoder):
+
+    def default(self, o: Any) -> Any:
+        if isinstance(o, rom):
+            return {
+                ji: jj
+                for ji, jj in o.__dict__.items() if not ji.endswith('_')
+            }
+        if isinstance(o, GameEntry):
+            return o.__dict__
+        if isinstance(o, Score):
+            return o.__dict__
+        return super().default(o)

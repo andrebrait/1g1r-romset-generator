@@ -15,7 +15,7 @@ from zipfile import ZipFile, BadZipFile, ZipInfo
 from modules import datafile, header
 from modules.classes import GameEntry, Score, RegionData, \
     GameEntryHelper, GameEntryKeyGenerator, FileData, FileDataUtils, \
-    MultiThreadedProgressBar, IndexedThread
+    MultiThreadedProgressBar, IndexedThread, CustomJsonEncoder
 from modules.header import Rule
 from modules.utils import get_index, check_in_pattern_list, to_int_list, \
     add_padding, get_or_default, available_columns, trim_to, is_valid
@@ -42,6 +42,8 @@ AVOIDED_ROM_BASE = 1000
 RULES: List[Rule] = []
 
 LOG_FILE: Optional[TextIO] = None
+
+JSON_ENCODER = CustomJsonEncoder()
 
 COUNTRY_REGION_CORRELATION = [
     # Language needs checking
@@ -839,13 +841,13 @@ def main(argv: List[str]):
         if debug:
             log(
                 'DEBUG: Candidates for game [%s] before filtering: %s'
-                % (game, entries))
+                % (game, JSON_ENCODER.encode(entries)))
         if not all_regions:
             entries = [x for x in entries if include_candidate(x)]
         if debug:
             log(
                 'DEBUG: Candidates for game [%s] after filtering: %s'
-                % (game, entries))
+                % (game, JSON_ENCODER.encode(entries)))
         size = len(entries)
         for i in range(0, size):
             entry = entries[i]
