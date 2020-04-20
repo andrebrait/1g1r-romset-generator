@@ -824,15 +824,27 @@ def main(argv: List[str]):
                 % (key, [g.name for g in games]))
 
     printed_items: List[str] = []
+
+    def include_candidate(x: GameEntry) -> bool:
+        if only_selected_lang and x.score.languages >= 0:
+            return False
+        if all_regions_with_lang and x.score.languages < 0:
+            return True
+        if all_regions:
+            return True
+        return x.score.region != UNSELECTED
+
     for game in sorted(parsed_games.keys()):
         entries = parsed_games[game]
-        if not all_regions:
-            entries = [x for x in entries if x.score.region != UNSELECTED
-                       and (not only_selected_lang or x.score.languages < 0)
-                       or (all_regions_with_lang and x.score.languages < 0)]
         if debug:
             log(
-                'DEBUG: Handling candidates for game [%s]: %s'
+                'DEBUG: Candidates for game [%s] before filtering: %s'
+                % (game, entries))
+        if not all_regions:
+            entries = [x for x in entries if include_candidate(x)]
+        if debug:
+            log(
+                'DEBUG: Candidates for game [%s] after filtering: %s'
                 % (game, entries))
         size = len(entries)
         for i in range(0, size):
