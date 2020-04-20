@@ -1,6 +1,6 @@
 import os
+import re
 from abc import ABC, abstractmethod
-from distutils.util import strtobool
 from math import log
 from typing import Callable, Iterable, List
 
@@ -8,6 +8,17 @@ try:
     from lxml import etree as etree_
 except ImportError:
     from xml.etree import ElementTree as etree_
+
+_TRUE_REGEX = re.compile(r'^true$', re.IGNORECASE)
+_FALSE_REGEX = re.compile(r'^false$', re.IGNORECASE)
+
+
+def _parse_bool(s: str) -> bool:
+    if _TRUE_REGEX.search(s):
+        return True
+    if _FALSE_REGEX.search(s):
+        return False
+    raise ValueError('Cannot convert %s to boolean' % s)
 
 
 class Rule:
@@ -34,7 +45,7 @@ class Rule:
             self.__offset = int(offset, 16)
             self.__value = int(value, 16)
             self.__end = self.__offset + int(value_length / 2)
-            self.__result = bool(strtobool(result))
+            self.__result = bool(_parse_bool(result))
 
         def apply(self, byte_arr: bytes) -> bool:
             bytes_slice = byte_arr[self.__offset:self.__end]
@@ -63,7 +74,7 @@ class Rule:
             self.__value = int(value, 16)
             self.__offset = int(offset, 16)
             self.__end = self.__offset + int(mask_length / 2)
-            self.__result = strtobool(result)
+            self.__result = _parse_bool(result)
             self.__operation = self.__get_op(operation)
 
         def apply(self, byte_arr: bytes) -> bool:
@@ -102,7 +113,7 @@ class Rule:
                 operator = 'equal'
             self.__operation = self.__get_op(size, operator)
             self.__size = int(size, 16) if size != 'PO2' else 0
-            self.__result = strtobool(result)
+            self.__result = _parse_bool(result)
 
         def apply(self, byte_arr: bytes) -> bool:
             return self.__operation(byte_arr) == self.__result
