@@ -440,8 +440,9 @@ def process_file(
             file_size: int = os.path.getsize(full_path)
             with open(full_path, 'rb') as uncompressed_file:
                 digest = compute_hash(file_size, uncompressed_file)
-                log("DEBUG: Scan result for file [%s]: %s"
-                    % (full_path, digest))
+                if DEBUG:
+                    log("DEBUG: Scan result for file [%s]: %s"
+                        % (full_path, digest))
                 if digest not in result or is_zip(result[digest]):
                     result[digest] = full_path
         except IOError as e:
