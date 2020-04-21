@@ -45,6 +45,8 @@ LOG_FILE: Optional[TextIO] = None
 
 JSON_ENCODER = CustomJsonEncoder()
 
+DEBUG = False
+
 COUNTRY_REGION_CORRELATION = [
     # Language needs checking
     RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),
@@ -419,11 +421,16 @@ def process_file(
         try:
             with ZipFile(full_path) as compressed_file:
                 for name in compressed_file.namelist():
+                    if name.endswith(os.path.sep):
+                        continue
                     file_info: ZipInfo = compressed_file.getinfo(name)
                     file_size = file_info.file_size
                     with compressed_file.open(name) as internal_file:
                         digest = compute_hash(file_size, internal_file)
                         result[digest] = full_path
+                        if DEBUG:
+                            log("DEBUG: Scan result for file [%s]: %s"
+                                % ("%s:%s" % (full_path, name), digest))
         except BadZipFile as e:
             print(
                 'Error while reading file [%s]: %s\033[K' % (full_path, e),
@@ -433,6 +440,8 @@ def process_file(
             file_size: int = os.path.getsize(full_path)
             with open(full_path, 'rb') as uncompressed_file:
                 digest = compute_hash(file_size, uncompressed_file)
+                log("DEBUG: Scan result for file [%s]: %s"
+                    % (full_path, digest))
                 if digest not in result or is_zip(result[digest]):
                     result[digest] = full_path
         except IOError as e:
@@ -551,12 +560,12 @@ def main(argv: List[str]):
     prefer_parents = False
     prefer_prereleases = False
     language_weight = 3
-    debug = False
     move = False
     global THREADS
     global RULES
     global MAX_FILE_SIZE
     global CHUNK_SIZE
+    global DEBUG
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print(help_msg())
@@ -595,8 +604,8 @@ def main(argv: List[str]):
         only_selected_lang |= opt == '--only-selected-lang'
         revision_asc |= opt == '--early-revisions'
         version_asc |= opt == '--early-versions'
-        debug |= opt == '--debug'
-        verbose |= debug or opt in ('-V', '--verbose')
+        DEBUG |= opt == '--debug'
+        verbose |= DEBUG or opt in ('-V', '--verbose')
         ignore_case |= opt == '--ignore-case'
         regex |= opt == '--regex'
         if opt == '--separator':
@@ -707,6 +716,8 @@ def main(argv: List[str]):
     hash_index: Dict[str, str] = {}
     if use_hashes and input_dir:
         hash_index = index_files(input_dir, dat_file)
+        if DEBUG:
+            log('DEBUG: Scanned files: %s' % JSON_ENCODER.encode(hash_index))
 
     parsed_games = parse_games(
         dat_file,
@@ -838,13 +849,13 @@ def main(argv: List[str]):
 
     for game in sorted(parsed_games.keys()):
         entries = parsed_games[game]
-        if debug:
+        if DEBUG:
             log(
                 'DEBUG: Candidates for game [%s] before filtering: %s'
                 % (game, JSON_ENCODER.encode(entries)))
         if not all_regions:
             entries = [x for x in entries if include_candidate(x)]
-        if debug:
+        if DEBUG:
             log(
                 'DEBUG: Candidates for game [%s] after filtering: %s'
                 % (game, JSON_ENCODER.encode(entries)))
