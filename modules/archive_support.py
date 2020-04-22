@@ -224,21 +224,18 @@ try:
                 if i.filename == file_name:
                     return i.uncompressed
 
-        def __create_temp_dir(self) -> str:
-            if not self.__temp_dir:
-                self.__temp_dir = tempfile.mkdtemp()
-            return self.__temp_dir
-
         def open(self, file_name: str) -> IO[AnyStr]:
             if self.mode() == 'w':
-                temp_dir = self.__create_temp_dir()
-                full_path = os.path.join(temp_dir, file_name)
+                if not self.__temp_dir:
+                    self.__temp_dir = tempfile.mkdtemp()
+                full_path = os.path.join(self.__temp_dir, file_name)
                 return open(full_path, 'wb')
             else:
-                temp_dir = self.__create_temp_dir()
-                full_path = os.path.join(temp_dir, file_name)
+                if not self.__temp_dir:
+                    self.__temp_dir = tempfile.mkdtemp()
+                full_path = os.path.join(self.__temp_dir, file_name)
                 if not self.__extracted:
-                    self.__archive.extractall(temp_dir)
+                    self.__archive.extractall(self.__temp_dir)
                     self.__extracted = True
                 return open(full_path, 'rb')
 
