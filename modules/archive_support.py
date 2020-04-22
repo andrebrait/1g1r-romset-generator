@@ -3,6 +3,7 @@ import tarfile
 import tempfile
 import zipfile
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager
 from tarfile import TarFile, TarInfo
 from typing import List, IO, Optional, Dict, AnyStr
 from zipfile import ZipFile, ZipInfo
@@ -33,7 +34,7 @@ class ArchiveType(ABC):
         pass
 
 
-class Archive(ABC):
+class Archive(AbstractContextManager):
     def __init__(
             self,
             full_path: str,
@@ -229,6 +230,7 @@ try:
                 if not self.__temp_dir:
                     self.__temp_dir = tempfile.mkdtemp()
                 full_path = os.path.join(self.__temp_dir, file_name)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
                 return open(full_path, 'wb')
             else:
                 if not self.__temp_dir:
