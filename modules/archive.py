@@ -24,7 +24,7 @@ def for_file(path: str) -> Optional['ArchiveType']:
     return None
 
 
-def by_key(key: str) -> Optional['ArchiveType']:
+def by_key(key: ArchiveKey) -> Optional['ArchiveType']:
     if key in _SUPPORTED_ARCHIVE_TYPES:
         return _SUPPORTED_ARCHIVE_TYPES[key]
     else:
