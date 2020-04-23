@@ -28,10 +28,8 @@ class FileData:
         self.size = size
         self.path = path
 
-
-class FileDataUtils:
     @staticmethod
-    def get_size(file_data: FileData) -> int:
+    def get_size(file_data: 'FileData') -> int:
         return file_data.size
 
 
@@ -89,55 +87,52 @@ class GameEntry:
         self.roms = roms
         self.score: Optional[Score] = None
 
-
-class GameEntryHelper:
-
     @staticmethod
-    def get_revision(g: GameEntry) -> str:
+    def get_revision(g: 'GameEntry') -> str:
         return g.revision
 
     @staticmethod
-    def get_version(g: GameEntry) -> str:
+    def get_version(g: 'GameEntry') -> str:
         return g.version
 
     @staticmethod
-    def get_sample(g: GameEntry) -> str:
+    def get_sample(g: 'GameEntry') -> str:
         return g.sample
 
     @staticmethod
-    def get_demo(g: GameEntry) -> str:
+    def get_demo(g: 'GameEntry') -> str:
         return g.demo
 
     @staticmethod
-    def get_beta(g: GameEntry) -> str:
+    def get_beta(g: 'GameEntry') -> str:
         return g.beta
 
     @staticmethod
-    def get_proto(g: GameEntry) -> str:
+    def get_proto(g: 'GameEntry') -> str:
         return g.proto
 
     @staticmethod
-    def set_revision(g: GameEntry, revision: str) -> None:
+    def set_revision(g: 'GameEntry', revision: str) -> None:
         g.revision = revision
 
     @staticmethod
-    def set_version(g: GameEntry, version: str) -> None:
+    def set_version(g: 'GameEntry', version: str) -> None:
         g.version = version
 
     @staticmethod
-    def set_sample(g: GameEntry, sample: str) -> None:
+    def set_sample(g: 'GameEntry', sample: str) -> None:
         g.sample = sample
 
     @staticmethod
-    def set_demo(g: GameEntry, demo: str) -> None:
+    def set_demo(g: 'GameEntry', demo: str) -> None:
         g.demo = demo
 
     @staticmethod
-    def set_beta(g: GameEntry, beta: str) -> None:
+    def set_beta(g: 'GameEntry', beta: str) -> None:
         g.beta = beta
 
     @staticmethod
-    def set_proto(g: GameEntry, proto: str) -> None:
+    def set_proto(g: 'GameEntry', proto: str) -> None:
         g.proto = proto
 
 

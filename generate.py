@@ -14,8 +14,8 @@ from zipfile import ZipFile, BadZipFile, ZipInfo
 
 from modules import datafile, header
 from modules.classes import GameEntry, Score, RegionData, \
-    GameEntryHelper, GameEntryKeyGenerator, FileData, FileDataUtils, \
-    MultiThreadedProgressBar, IndexedThread, CustomJsonEncoder
+    GameEntryKeyGenerator, FileData, MultiThreadedProgressBar, IndexedThread, \
+    CustomJsonEncoder
 from modules.header import Rule
 from modules.utils import get_index, check_in_pattern_list, to_int_list, \
     add_padding, get_or_default, available_columns, trim_to, is_valid
@@ -343,7 +343,7 @@ def index_files(
                 print(
                     'Error while reading file: %s\033[K' % e,
                     file=sys.stderr)
-    files_data.sort(key=FileDataUtils.get_size, reverse=True)
+    files_data.sort(key=FileData.get_size, reverse=True)
     print('%s%i files\033[K' % (FOUND_PREFIX, len(files_data)), file=sys.stderr)
 
     if files_data:
@@ -802,28 +802,28 @@ def main(argv: List[str]):
         games = parsed_games[key]
         pad_values(
             games,
-            GameEntryHelper.get_version,
-            GameEntryHelper.set_version)
+            GameEntry.get_version,
+            GameEntry.set_version)
         pad_values(
             games,
-            GameEntryHelper.get_revision,
-            GameEntryHelper.set_revision)
+            GameEntry.get_revision,
+            GameEntry.set_revision)
         pad_values(
             games,
-            GameEntryHelper.get_sample,
-            GameEntryHelper.set_sample)
+            GameEntry.get_sample,
+            GameEntry.set_sample)
         pad_values(
             games,
-            GameEntryHelper.get_demo,
-            GameEntryHelper.set_demo)
+            GameEntry.get_demo,
+            GameEntry.set_demo)
         pad_values(
             games,
-            GameEntryHelper.get_beta,
-            GameEntryHelper.set_beta)
+            GameEntry.get_beta,
+            GameEntry.set_beta)
         pad_values(
             games,
-            GameEntryHelper.get_proto,
-            GameEntryHelper.set_proto)
+            GameEntry.get_proto,
+            GameEntry.set_proto)
         set_scores(
             games,
             selected_regions,
