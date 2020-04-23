@@ -1,7 +1,7 @@
 import sys
 from json.encoder import JSONEncoder
 from threading import Lock, Thread
-from typing import Optional, List, Pattern, TextIO, Tuple, Any
+from typing import Optional, List, Pattern, TextIO, Tuple, Any, NamedTuple
 
 from modules.datafile import rom
 from modules.utils import check_in_pattern_list, trim_to, available_columns
@@ -23,35 +23,24 @@ class IndexedThread(Thread):
         self.index = index
 
 
-class FileData:
-    def __init__(self, size: int, path: str):
-        self.size = size
-        self.path = path
+class FileData(NamedTuple):
+    size: int
+    path: str
 
     @staticmethod
     def get_size(file_data: 'FileData') -> int:
         return file_data.size
 
 
-class Score:
-    def __init__(
-            self,
-            region: int,
-            languages: int,
-            revision: List[int],
-            version: List[int],
-            sample: List[int],
-            demo: List[int],
-            beta: List[int],
-            proto: List[int]):
-        self.region = region
-        self.languages = languages
-        self.revision = revision
-        self.version = version
-        self.sample = sample
-        self.demo = demo
-        self.beta = beta
-        self.proto = proto
+class Score(NamedTuple):
+    region: int
+    languages: int
+    revision: List[int]
+    version: List[int]
+    sample: List[int]
+    demo: List[int]
+    beta: List[int]
+    proto: List[int]
 
 
 class GameEntry:
@@ -136,21 +125,13 @@ class GameEntry:
         g.proto = proto
 
 
-class GameEntryKeyGenerator:
-    def __init__(
-            self,
-            prioritize_languages: bool,
-            prefer_prereleases: bool,
-            prefer_parents: bool,
-            input_order: bool,
-            prefer: List[Pattern],
-            avoid: List[Pattern]):
-        self.prioritize_languages = prioritize_languages
-        self.prefer_prereleases = prefer_prereleases
-        self.prefer_parents = prefer_parents
-        self.input_order = input_order
-        self.avoid = avoid
-        self.prefer = prefer
+class GameEntryKeyGenerator(NamedTuple):
+    prioritize_languages: bool
+    prefer_prereleases: bool
+    prefer_parents: bool
+    input_order: bool
+    prefer: List[Pattern]
+    avoid: List[Pattern]
 
     def generate(self, g: GameEntry) -> Tuple:
         return (
@@ -172,15 +153,10 @@ class GameEntryKeyGenerator:
             not g.is_parent)
 
 
-class RegionData:
-    def __init__(
-            self,
-            code: str,
-            pattern: Optional[Pattern[str]],
-            languages: List[str]):
-        self.code = code
-        self.pattern = pattern
-        self.languages = languages
+class RegionData(NamedTuple):
+    code: str
+    pattern: Optional[Pattern[str]]
+    languages: List[str]
 
 
 class MultiThreadedProgressBar:
@@ -257,13 +233,18 @@ class MultiThreadedProgressBar:
 class CustomJsonEncoder(JSONEncoder):
 
     def default(self, o: Any) -> Any:
-        if isinstance(o, rom):
-            return {
-                ji: jj
-                for ji, jj in o.__dict__.items() if not ji.endswith('_')
-            }
-        if isinstance(o, GameEntry):
-            return o.__dict__
-        if isinstance(o, Score):
-            return o.__dict__
-        return super().default(o)
+        if isinstance(o, tuple) \
+                and hasattr(o, '_asdict') \
+                and callable(o._asdict):
+            return o._asdict()
+        try:
+            return super().default(o)
+        except TypeError as e:
+            if isinstance(o, rom):
+                return {
+                    ji: jj
+                    for ji, jj in o.__dict__.items() if not ji.endswith('_')
+                }
+            if hasattr(o, '__dict__'):
+                return o.__dict__
+            raise e

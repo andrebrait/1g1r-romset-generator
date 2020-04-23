@@ -4,14 +4,17 @@ import tempfile
 import zipfile
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
+from enum import Enum
 from typing import List, IO, Optional, Dict, AnyStr
 
-TAR_KEY = 'tar'
-ZIP_KEY = 'zip'
-RAR_KEY = 'rar'
-SEVENZIP_KEY = '7z'
+_SUPPORTED_ARCHIVE_TYPES: Dict['ArchiveKey', 'ArchiveType'] = {}
 
-_SUPPORTED_ARCHIVE_TYPES: Dict[str, 'ArchiveType'] = {}
+
+class ArchiveKey(Enum):
+    TAR_KEY = 'tar'
+    ZIP_KEY = 'zip'
+    RAR_KEY = 'rar'
+    SEVENZIP_KEY = '7z'
 
 
 def for_file(path: str) -> Optional['ArchiveType']:
@@ -124,7 +127,7 @@ class _ZipArchiveType(ArchiveType):
         return _ZipArchive(path, mode)
 
 
-_SUPPORTED_ARCHIVE_TYPES[ZIP_KEY] = _ZipArchiveType()
+_SUPPORTED_ARCHIVE_TYPES[ArchiveKey.ZIP_KEY] = _ZipArchiveType()
 
 
 class _TarArchive(Archive):
@@ -168,7 +171,7 @@ class _TarArchiveType(ArchiveType):
         return _TarArchive(path, mode)
 
 
-_SUPPORTED_ARCHIVE_TYPES[TAR_KEY] = _TarArchiveType()
+_SUPPORTED_ARCHIVE_TYPES[ArchiveKey.TAR_KEY] = _TarArchiveType()
 
 try:
     import rarfile
@@ -212,7 +215,7 @@ try:
             return _RarArchive(path, mode)
 
 
-    _SUPPORTED_ARCHIVE_TYPES[RAR_KEY] = _RarArchiveType()
+    _SUPPORTED_ARCHIVE_TYPES[ArchiveKey.RAR_KEY] = _RarArchiveType()
 
 except ImportError as e:
     rarfile = None
@@ -293,7 +296,7 @@ try:
             return _SevenZipArchive(path, mode)
 
 
-    _SUPPORTED_ARCHIVE_TYPES[SEVENZIP_KEY] = _SevenZipArchiveType()
+    _SUPPORTED_ARCHIVE_TYPES[ArchiveKey.SEVENZIP_KEY] = _SevenZipArchiveType()
 
 except ImportError as e:
     py7zr = None
