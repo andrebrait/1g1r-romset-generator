@@ -11,10 +11,10 @@ _SUPPORTED_ARCHIVE_TYPES: Dict['ArchiveKey', 'ArchiveType'] = {}
 
 
 class ArchiveKey(Enum):
-    TAR_KEY = 'tar'
-    ZIP_KEY = 'zip'
-    RAR_KEY = 'rar'
-    SEVENZIP_KEY = '7z'
+    ZIP_KEY = 1
+    SEVENZIP_KEY = 2
+    TAR_KEY = 3
+    RAR_KEY = 4
 
 
 def for_file(path: str) -> Optional['ArchiveType']:
