@@ -1,8 +1,10 @@
 import getopt
 import sys
+from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import NamedTuple, List, Callable, TypeVar, Generic, Tuple, Optional
+from typing import NamedTuple, List, Callable, TypeVar, Generic, Tuple, \
+    Optional
 
 __version__ = "1.9.4-SNAPSHOT"
 
@@ -11,20 +13,40 @@ from modules.classes import Score
 _D = TypeVar("_D")
 
 
+# TODO: we should handle CHDs
 class OutputMode(Enum):
-    PRINT_IDEAL = 1
-    PRINT_BEST_MATCH = 2
-    COPY_RENAME = 3
-    UNCOMPRESSED = 4
-    UNCOMPRESSED_CLRMAMEPRO = 5
-    COMPRESSED_ZIP = 6
-    RECOMPRESSED_ZIP = 7
-    COMPRESSED_7Z = 8
-    RECOMPRESSED_7Z = 9
+    PREVIEW = \
+        ("Preview the list of selected ROMs",)
+    COPY_RENAME = \
+        ("Copy the files without restructuring or (un)compression",)
+    UNCOMPRESSED = \
+        ("Copy the files, uncompressing if needed",
+         "Games with a single ROM are pur in the root of the output directory",
+         "Games with multiple ROMs have them grouped in subdirectories")
+    UNCOMPRESSED_CLRMAMEPRO = \
+        ("Same as above, but following ClrMamePro's folder structure",
+         "ROMs are always in subdirectories, regardless of the number of them",
+         "Reference: https://mamedev.emulab.it/clrmamepro/docs/htm/scanner.htm")
+    COMPRESSED_ZIP = \
+        ("Copy the files, compressing them to 'zip' if not already compressed",)
+    RECOMPRESSED_ZIP = \
+        ("Copy the files, always (re)compressing them to 'zip'",)
+    COMPRESSED_7Z = \
+        ("Copy the files, compressing them to '7z' if not already compressed",)
+    RECOMPRESSED_7Z = \
+        ("Copy the files, always (re)compressing them to '7z'",)
+    CUSTOM_DAT = \
+        ("Produces a custom DAT with the ROM selection",
+         "If no output directory is given, the DAT is printed to the terminal",
+         "Otherwise, it will be written to '<out_dir>/<dat>_custom_<date>.dat'")
 
 
-class _Section(NamedTuple):
-    title: str
+class _Section(Enum):
+    ROM_SELECTION = "ROM selection and file manipulation"
+    FILE_SCANNING = "File scanning"
+    FILTERING = "Filtering"
+    ADJUSTMENT = "Adjustment and customization"
+    HELP = "Help and debugging"
 
 
 class _Flag(NamedTuple):
@@ -34,13 +56,57 @@ class _Flag(NamedTuple):
     description: Tuple[str, ...]
 
 
-class _Option(NamedTuple, Generic[_D]):
-    section: _Section
-    short_name: str
-    long_name: str
-    parse_func: Callable[[str, str], _D]
-    validate_func: Callable[[_D], bool]
-    description: Tuple[str, ...]
+class _Option(ABC, Generic[_D]):
+
+    def __init__(
+            self,
+            section: _Section,
+            short_name: str,
+            long_name: str,
+            description: Tuple[str, ...]) -> None:
+        self.__section = section
+        self.__short_name = short_name
+        self.__long_name = long_name
+        self.__description = description
+
+    @property
+    def section(self) -> _Section:
+        return self.__section
+
+    @property
+    def short_name(self) -> str:
+        return self.__short_name
+
+    @property
+    def long_name(self) -> str:
+        return self.__long_name
+
+    @property
+    def description(self) -> Tuple[str, ...]:
+        return self.__description
+
+    @abstractmethod
+    def parse(self, arg: str) -> _D:
+        pass
+
+    @abstractmethod
+    def validate(self, result: _D) -> None:
+        pass
+
+
+class _RegionsOption(_Option[List[str]]):
+
+    def parse(self, arg: str) -> List[str]:
+        return [s.upper() for s in (r.strip() for r in arg.split(",")) if s]
+
+    def validate(self, result: List[str]) -> None:
+        if not result:
+            raise ValueError("%s is required" % self.long_name)
+        invalid_values = [r for r in result if len(r) != 3]
+        if invalid_values:
+            raise ValueError(
+                "Invalid values for %s: %s"
+                % (self.long_name, invalid_values))
 
 
 class _Parameters(NamedTuple):
@@ -63,48 +129,159 @@ class _Parameters(NamedTuple):
     revision_multiplier: int
     version_multiplier: int
     no_scan: bool
+    extension: str
     chunk_size: int
     threads: int
     debug: bool
 
 
-class _Sections(Enum):
-    ROM_SELECTION = _Section("ROM selection and file manipulation")
-    FILE_SCANNING = _Section("File scanning")
-    FILTERING = _Section("Filtering")
-    ADJUSTMENT = _Section("Adjustment and customization")
-    HELP = _Section("Help and debugging")
-
-
 class _Flags(Enum):
     MOVE = _Flag(
-        _Sections.ROM_SELECTION.value,
+        _Section.ROM_SELECTION,
         None,
         "move",
         ("If set, move files instead of copying",))
     NO_SCAN = _Flag(
-        _Sections.FILE_SCANNING.value,
+        _Section.FILE_SCANNING,
         None,
         "no-scan",
         ("If set, try to match ROMs by name only, ignoring file checksums",))
+    NO_BIOS = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-bios",
+        ("Filter out BIOSes",))
+    NO_PROGRAM = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-program",
+        ("Filter out Programs and Test Programs",))
+    NO_ENHANCEMENT_CHIP = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-enhancement-chip",
+        ("Filter out Ehancement Chips",))
+    NO_PROTO = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-proto",
+        ("Filter out prototype ROMs",))
+    NO_BETA = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-beta",
+        ("Filter out beta ROMs",))
+    NO_DEMO = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-demo",
+        ("Filter out demo ROMs",))
+    NO_SAMPLE = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-sample",
+        ("Filter out sample ROMs",))
+    NO_PIRATE = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-pirate",
+        ("Filter out pirate ROMs",))
+    NO_PROMO = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-promo",
+        ("Filter out promotion ROMs",))
+    NO_ALL = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-all",
+        ("Apply all filters ABOVE",))
+    NO_UNLICENSED = _Flag(
+        _Section.FILTERING,
+        None,
+        "no-unlicensed",
+        ("Filter out unlicensed ROMs",))
+    ALL_REGIONS = _Flag(
+        _Section.FILTERING,
+        None,
+        "all-regions",
+        ("Includes files of unselected regions as a last resource",))
+    ALL_REGIONS_WITH_LANG = _Flag(
+        _Section.FILTERING,
+        None,
+        "all-regions-with-lang",
+        ("Same as above, but only if the ROM has some selected language",))
+    ONLY_SELECTED_LANG = _Flag(
+        _Section.FILTERING,
+        None,
+        "only-selected-lang",
+        ("Filter out ROMs without any selected languages",))
+    PRIORITIZE_LANGUAGES = _Flag(
+        _Section.ADJUSTMENT,
+        None,
+        "prioritize-languages",
+        ("If set, matching by language will precede matching by region",))
+    EARLY_REVISIONS = _Flag(
+        _Section.ADJUSTMENT,
+        None,
+        "early-revisions",
+        ("ROMs of earlier revisions will be prioritized",))
+    EARLY_VERSIONS = _Flag(
+        _Section.ADJUSTMENT,
+        None,
+        "early-versions",
+        ("ROMs of earlier versions will be prioritized",))
+    PREFER_PARENTS = _Flag(
+        _Section.ADJUSTMENT,
+        None,
+        "prefer-parents",
+        ("Parent ROMs will be prioritized over clones",))
+    IGNORE_CASE = _Flag(
+        _Section.ADJUSTMENT,
+        None,
+        "ignore-case",
+        ("If set, the avoid and exclude lists will be case-insensitive",))
+    REGEX = _Flag(
+        _Section.ADJUSTMENT,
+        None,
+        "regex",
+        (
+        "If set, the avoid and exclude lists are used as regular expressions",))
     HELP = _Flag(
-        _Sections.HELP.value,
+        _Section.HELP,
         "h",
         "help",
         ("Print this message",))
     VERSION = _Flag(
-        _Sections.HELP.value,
+        _Section.HELP,
         "v",
         "version",
         ("Print the version",))
     DEBUG = _Flag(
-        _Sections.HELP.value,
+        _Section.HELP,
         None,
         "debug",
         ("Log more messages (useful when troubleshooting)",))
 
-class _Options(Enum):
 
+class _Options(Enum):
+    REGIONS = _RegionsOption(
+        _Section.ROM_SELECTION,
+        "r",
+        "regions",
+        ("A list of regions separated by commas",
+         "Ex.: -r USA,EUR,JPN"))
+
+
+# -l,--languages=LANGS    An optional list of languages separated by commas
+# This is a secondary prioritization criteria, not a filter
+# Ex.: -l en,es,ru
+# -d,--dat=DAT_FILE       The DAT file to be used
+# Ex.: -d snes.dat
+# -i,--input-dir=PATH     Provides an input directory (i.e.: where your ROMs are)
+# Ex.: -i "C:\Users\John\Downloads\Emulators\SNES\ROMs"
+# -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
+# Ex.: -o "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
 
 
 def parse_opts(argv: List[str]):
