@@ -56,6 +56,3 @@ def trim_to(text: str, n: int) -> str:
         return '%s%s' % (TRIM_PREFIX, text[-(n - len(TRIM_PREFIX)):])
     return text
 
-
-def is_valid(x: str) -> bool:
-    return bool(x and not x.isspace())

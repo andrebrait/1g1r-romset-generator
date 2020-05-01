@@ -61,17 +61,24 @@ class _Option(ABC, Generic[_D]):
     def __init__(
             self,
             section: _Section,
+            arity: Tuple[int, Optional[int]],
             short_name: str,
             long_name: str,
             description: Tuple[str, ...]) -> None:
         self.__section = section
+        self.__arity = arity
         self.__short_name = short_name
         self.__long_name = long_name
         self.__description = description
+        self.__invocations = 0
 
     @property
     def section(self) -> _Section:
         return self.__section
+
+    @property
+    def arity(self) -> Tuple[int, Optional[int]]:
+        return self.__arity
 
     @property
     def short_name(self) -> str:
@@ -89,30 +96,77 @@ class _Option(ABC, Generic[_D]):
     def parse(self, arg: str) -> _D:
         pass
 
+    def count_parse(self) -> None:
+        self.__invocations += 1
+
+    def arity_respected(self) -> bool:
+        return self.__invocations >= self.arity[0] and \
+               (not self.arity[1] or self.__invocations <= self.arity[1])
+
     @abstractmethod
     def validate(self, result: _D) -> None:
         pass
 
 
+def _not_blank(x: str) -> bool:
+    return bool(x and not x.isspace())
+
+
 class _RegionsOption(_Option[List[str]]):
 
     def parse(self, arg: str) -> List[str]:
-        return [s.upper() for s in (r.strip() for r in arg.split(",")) if s]
+        self.count_parse()
+        return [s.strip().upper() for s in arg.split(",") if _not_blank(s)]
 
     def validate(self, result: List[str]) -> None:
         if not result:
-            raise ValueError("%s is required" % self.long_name)
+            raise ValueError("'%s' is required" % self.long_name)
         invalid_values = [r for r in result if len(r) != 3]
         if invalid_values:
             raise ValueError(
-                "Invalid values for %s: %s"
+                "Invalid values for '%s': %s"
                 % (self.long_name, invalid_values))
+
+
+class _LanguagesOption(_Option[List[str]]):
+
+    def parse(self, arg: str) -> List[str]:
+        self.count_parse()
+        return [s.strip().lower() for s in arg.split(",") if _not_blank(s)]
+
+    def validate(self, result: List[str]) -> None:
+        if not result:
+            raise ValueError("'%s' is required" % self.long_name)
+        invalid_values = [r for r in result if len(r) != 2]
+        if invalid_values:
+            raise ValueError(
+                "Invalid values for '%s': %s"
+                % (self.long_name, invalid_values))
+
+
+class _InputDatOption(_Option[Path]):
+
+    def parse(self, arg: str) -> Path:
+        self.count_parse()
+        return Path(arg).expanduser()
+
+    def validate(self, result: Path) -> None:
+        if not result:
+            raise ValueError("%s is required" % self.long_name)
+        if not result.exists():
+            raise ValueError(
+                "Invalid values for '%s': file '%s' not found"
+                % (self.long_name, result))
+        if not result.is_file():
+            raise ValueError(
+                "Invalid values for '%s': '%s' is not a file"
+                % (self.long_name, result))
 
 
 class _Parameters(NamedTuple):
     mode: OutputMode
     move: bool
-    dat_file: str
+    dat_file: Path
     input_dirs: Tuple[Path, ...]
     output_dir: Path
     regions: Tuple[str, ...]
@@ -240,13 +294,12 @@ class _Flags(Enum):
         _Section.ADJUSTMENT,
         None,
         "ignore-case",
-        ("If set, the avoid and exclude lists will be case-insensitive",))
+        ("If set, avoid and exclude will be case-insensitive",))
     REGEX = _Flag(
         _Section.ADJUSTMENT,
         None,
         "regex",
-        (
-        "If set, the avoid and exclude lists are used as regular expressions",))
+        ("If set, avoid and exclude are used as regular expressions",))
     HELP = _Flag(
         _Section.HELP,
         "h",
@@ -267,22 +320,27 @@ class _Flags(Enum):
 class _Options(Enum):
     REGIONS = _RegionsOption(
         _Section.ROM_SELECTION,
+        (1, None),
         "r",
         "regions",
         ("A list of regions separated by commas",
          "Ex.: -r USA,EUR,JPN"))
+    LANGUAGES = _LanguagesOption(
+        _Section.ROM_SELECTION,
+        (0, None),
+        "l",
+        "languages",
+        ("An optional list of languages separated by commas",
+         "This is a secondary prioritization criteria, not a filter",
+         "Ex.: -l en,es,ru"))
 
 
-# -l,--languages=LANGS    An optional list of languages separated by commas
-# This is a secondary prioritization criteria, not a filter
-# Ex.: -l en,es,ru
 # -d,--dat=DAT_FILE       The DAT file to be used
 # Ex.: -d snes.dat
 # -i,--input-dir=PATH     Provides an input directory (i.e.: where your ROMs are)
 # Ex.: -i "C:\Users\John\Downloads\Emulators\SNES\ROMs"
 # -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
 # Ex.: -o "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
-
 
 def parse_opts(argv: List[str]):
     try:
@@ -385,11 +443,11 @@ def parse_opts(argv: List[str]):
             sys.exit()
         if opt in ('-r', '--regions'):
             selected_regions = [x.strip().upper() for x in arg.split(',')
-                                if is_valid(x)]
+                                if _not_blank(x)]
         if opt in ('-l', '--languages'):
             selected_languages = [x.strip().lower()
                                   for x in reversed(arg.split(','))
-                                  if is_valid(x)]
+                                  if _not_blank(x)]
         if opt in ('-w', '--language-weight'):
             try:
                 language_weight = int(arg.strip())
