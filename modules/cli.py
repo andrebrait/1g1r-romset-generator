@@ -541,9 +541,10 @@ for f in _flags:
     _flags_by_section[f.section] += (f,)
 
 
-def _is_present(f: _Flag, opts: Iterable[Tuple[str, str]]) -> bool:
+def _is_present(f: _Flags, opts: Iterable[Tuple[str, str]]) -> bool:
+    flag: _Flag = f.value
     for o in opts:
-        if o[0].lstrip("-") in (f.short_name, f.long_name):
+        if o[0].lstrip("-") in (flag.short_name, flag.long_name):
             return True
     return False
 
@@ -560,26 +561,26 @@ def parse_opts(argv: List[str]):
     except getopt.GetoptError as e:
         sys.exit(_help_msg(e))
 
-    if _is_present(_Flags.HELP.value, opts):
+    if _is_present(_Flags.HELP, opts):
         print(_help_msg())
         sys.exit()
 
-    if _is_present(_Flags.VERSION.value, opts):
+    if _is_present(_Flags.VERSION, opts):
         print(_version_info())
         sys.exit()
 
-    no_all = _is_present(_Flags.NO_ALL.value, opts)
-    filter_bios = no_all or _is_present(_Flags.NO_BIOS.value, opts)
-    filter_program = no_all or _is_present(_Flags.NO_PROGRAM.value, opts)
+    no_all = _is_present(_Flags.NO_ALL, opts)
+    filter_bios = no_all or _is_present(_Flags.NO_BIOS, opts)
+    filter_program = no_all or _is_present(_Flags.NO_PROGRAM, opts)
     filter_enhancement_chip = \
-        no_all or _is_present(_Flags.NO_ENHANCEMENT_CHIP.value, opts)
-    filter_pirate = no_all or _is_present(_Flags.NO_PIRATE.value, opts)
-    filter_promo = no_all or _is_present(_Flags.NO_PROMO.value, opts)
-    filter_proto = no_all or _is_present(_Flags.NO_PROTO.value, opts)
-    filter_beta = no_all or _is_present(_Flags.NO_BETA.value, opts)
-    filter_demo = no_all or _is_present(_Flags.NO_DEMO.value, opts)
-    filter_sample = no_all or _is_present(_Flags.NO_SAMPLE.value, opts)
-    filter_unlicensed = _is_present(_Flags.NO_UNLICENSED.value, opts)
+        no_all or _is_present(_Flags.NO_ENHANCEMENT_CHIP, opts)
+    filter_pirate = no_all or _is_present(_Flags.NO_PIRATE, opts)
+    filter_promo = no_all or _is_present(_Flags.NO_PROMO, opts)
+    filter_proto = no_all or _is_present(_Flags.NO_PROTO, opts)
+    filter_beta = no_all or _is_present(_Flags.NO_BETA, opts)
+    filter_demo = no_all or _is_present(_Flags.NO_DEMO, opts)
+    filter_sample = no_all or _is_present(_Flags.NO_SAMPLE, opts)
+    filter_unlicensed = _is_present(_Flags.NO_UNLICENSED, opts)
 
 
 
