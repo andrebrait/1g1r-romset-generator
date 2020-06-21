@@ -890,9 +890,8 @@ def main(argv: List[str]):
                             else:
                                 rom_output_dir = output_dir
                             if is_zip_file:
-                                rom_output_path = Path(
-                                    rom_output_dir,
-                                    add_extension(entry.name, 'zip'))
+                                zip_name = add_extension(entry.name, 'zip')
+                                rom_output_path = rom_output_dir / zip_name
                             else:
                                 rom_output_path = \
                                     rom_output_dir / entry_rom.name
