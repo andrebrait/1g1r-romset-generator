@@ -1,5 +1,6 @@
 import sys
 from json.encoder import JSONEncoder
+from pathlib import Path
 from threading import Lock, Thread
 from typing import Optional, List, Pattern, TextIO, Tuple, Any
 
@@ -24,7 +25,7 @@ class IndexedThread(Thread):
 
 
 class FileData:
-    def __init__(self, size: int, path: str):
+    def __init__(self, size: int, path: Path):
         self.size = size
         self.path = path
 
