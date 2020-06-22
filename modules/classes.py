@@ -1,5 +1,6 @@
 import sys
 from json.encoder import JSONEncoder
+from pathlib import Path
 from threading import Lock, Thread
 from typing import Optional, List, Pattern, TextIO, Tuple, Any, NamedTuple
 
@@ -23,9 +24,10 @@ class IndexedThread(Thread):
         self.index = index
 
 
-class FileData(NamedTuple):
-    size: int
-    path: str
+class FileData:
+    def __init__(self, size: int, path: Path):
+        self.size = size
+        self.path = path
 
     @staticmethod
     def get_size(file_data: 'FileData') -> int:

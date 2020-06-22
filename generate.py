@@ -1,15 +1,15 @@
 #!/usr/bin/python3
 
 import hashlib
-import os
 import re
 import shutil
 import sys
 from io import BufferedIOBase
+from pathlib import Path
 from threading import current_thread
 from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
     BinaryIO, TextIO
-from zipfile import ZipFile, BadZipFile, ZipInfo
+from zipfile import ZipFile, BadZipFile, ZipInfo, is_zipfile
 
 from modules import datafile, header
 from modules.classes import GameEntry, Score, RegionData, \
@@ -91,7 +91,7 @@ REV_REGEX = re.compile(r'\(Rev\s*([a-z0-9.]+)\)', re.IGNORECASE)
 VERSION_REGEX = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
 LANGUAGES_REGEX = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
 BAD_REGEX = re.compile(re.escape('[b]'), re.IGNORECASE)
-ZIP_REGEX = re.compile(re.escape(os.path.extsep) + r'zip$', re.IGNORECASE)
+ZIP_REGEX = re.compile(r'\.zip$', re.IGNORECASE)
 
 
 def parse_revision(name: str) -> str:
@@ -159,7 +159,7 @@ def is_present(code: str, region_data: List[RegionData]) -> bool:
     return False
 
 
-def validate_dat(file: str, use_hashes: bool) -> None:
+def validate_dat(file: Path, use_hashes: bool) -> None:
     root = datafile.parse(file, silence=True)
     has_cloneof = False
     lacks_sha1 = False
@@ -195,7 +195,7 @@ def validate_dat(file: str, use_hashes: bool) -> None:
 
 
 def parse_games(
-        file: str,
+        file: Path,
         filter_bios: bool,
         filter_program: bool,
         filter_enhancement_chip: bool,
@@ -308,9 +308,9 @@ def language_value(
 
 
 def index_files(
-        input_dir: str,
-        dat_file: str) -> Dict[str, str]:
-    result: Dict[str, str] = {}
+        input_dir: Path,
+        dat_file: Path) -> Dict[str, Optional[Path]]:
+    result: Dict[str, Optional[Path]] = {}
     also_check_archive: bool = False
     root = datafile.parse(dat_file, silence=True)
     global RULES
@@ -318,28 +318,28 @@ def index_files(
         RULES = get_header_rules(root)
     for game in root.game:
         for rom_entry in game.rom:
-            result[rom_entry.sha1.lower()] = ""
+            result[rom_entry.sha1.lower()] = None
             also_check_archive |= bool(ZIP_REGEX.search(rom_entry.name))
     print('Scanning directory: %s\033[K' % input_dir, file=sys.stderr)
     files_data = []
-    for root, dirs, files in os.walk(input_dir):
-        for file in files:
-            full_path = os.path.join(root, file)
-            try:
-                print(
-                    '%s%s\033[K' % (
-                        FOUND_PREFIX,
-                        trim_to(
-                            file_relative_to_input(full_path, input_dir),
-                            available_columns(FOUND_PREFIX) - 2)),
-                    end='\r',
-                    file=sys.stderr)
-                file_size = os.path.getsize(full_path)
-                files_data.append(FileData(file_size, full_path))
-            except OSError as e:
-                print(
-                    'Error while reading file: %s\033[K' % e,
-                    file=sys.stderr)
+    for full_path in input_dir.rglob('*'):
+        if not full_path.is_file():
+            continue
+        try:
+            print(
+                '%s%s\033[K' % (
+                    FOUND_PREFIX,
+                    trim_to(
+                        file_relative_to_input(full_path, input_dir),
+                        available_columns(FOUND_PREFIX) - 2)),
+                end='\r',
+                file=sys.stderr)
+            file_size = full_path.stat().st_size
+            files_data.append(FileData(file_size, full_path))
+        except OSError as e:
+            print(
+                'Error while reading file: %s\033[K' % e,
+                file=sys.stderr)
     files_data.sort(key=FileData.get_size, reverse=True)
     print('%s%i files\033[K' % (FOUND_PREFIX, len(files_data)), file=sys.stderr)
 
@@ -353,7 +353,7 @@ def index_files(
 
         def process_thread_with_progress(
                 shared_files_data: List[FileData],
-                shared_result_data: List[Dict[str, str]]) -> None:
+                shared_result_data: List[Dict[str, Path]]) -> None:
             curr_thread = current_thread()
             if not isinstance(curr_thread, IndexedThread):
                 sys.exit('Bad thread type. Expected %s' % IndexedThread)
@@ -389,7 +389,8 @@ def index_files(
 
         for intermediate_result in intermediate_results:
             for key, value in intermediate_result.items():
-                if key in result and not is_zip(result[key]):
+                if key in result and not \
+                        (result[key] and is_zipfile(result[key])):
                     result[key] = value
     return result
 
@@ -397,8 +398,8 @@ def index_files(
 def get_header_rules(root: datafile) -> List[Rule]:
     if root.header.clrmamepro:
         if root.header.clrmamepro.header:
-            header_file = os.path.join('headers', root.header.clrmamepro.header)
-            if os.path.isfile(header_file):
+            header_file = Path('headers', root.header.clrmamepro.header)
+            if header_file.is_file():
                 return header.parse_rules(header_file)
             else:
                 log(
@@ -410,37 +411,40 @@ def get_header_rules(root: datafile) -> List[Rule]:
 
 def process_file(
         file_data: FileData,
-        also_check_archive: bool) -> Dict[str, str]:
+        also_check_archive: bool) -> Dict[str, Path]:
     full_path = file_data.path
-    result: Dict[str, str] = {}
-    is_zip_file = is_zip(full_path)
-    if is_zip_file:
+    result: Dict[str, Path] = {}
+    is_zip = is_zipfile(full_path)
+    if is_zip:
         try:
             with ZipFile(full_path) as compressed_file:
-                for name in compressed_file.namelist():
-                    if name.endswith(os.path.sep):
+                infos: List[ZipInfo] = compressed_file.infolist()
+                for file_info in infos:
+                    if file_info.is_dir():
                         continue
-                    file_info: ZipInfo = compressed_file.getinfo(name)
                     file_size = file_info.file_size
-                    with compressed_file.open(name) as internal_file:
+                    with compressed_file.open(file_info) as internal_file:
                         digest = compute_hash(file_size, internal_file)
                         result[digest] = full_path
                         if DEBUG:
                             log("DEBUG: Scan result for file [%s]: %s"
-                                % ("%s:%s" % (full_path, name), digest))
+                                % (
+                                    "%s:%s" % (full_path, file_info.filename),
+                                    digest))
         except BadZipFile as e:
             print(
                 'Error while reading file [%s]: %s\033[K' % (full_path, e),
                 file=sys.stderr)
-    if not is_zip_file or also_check_archive:
+    if not is_zip or also_check_archive:
         try:
-            file_size: int = os.path.getsize(full_path)
-            with open(full_path, 'rb') as uncompressed_file:
+            file_size: int = full_path.stat().st_size
+            with full_path.open('rb') as uncompressed_file:
                 digest = compute_hash(file_size, uncompressed_file)
                 if DEBUG:
                     log("DEBUG: Scan result for file [%s]: %s"
                         % (full_path, digest))
-                if digest not in result or is_zip(result[digest]):
+                if digest not in result or \
+                        (result[digest] and is_zipfile(result[digest])):
                     result[digest] = full_path
         except IOError as e:
             print(
@@ -468,15 +472,11 @@ def compute_hash(
     return hasher.hexdigest().lower()
 
 
-def is_zip(file: str) -> bool:
-    return bool(ZIP_REGEX.search(file))
-
-
 def main(argv: List[str]):
 
     validate_dat(dat_file, use_hashes)
 
-    hash_index: Dict[str, str] = {}
+    hash_index: Dict[str, Optional[Path]] = {}
     if use_hashes and input_dir:
         hash_index = index_files(input_dir, dat_file)
         if DEBUG:
@@ -634,29 +634,26 @@ def main(argv: List[str]):
                     digest = entry_rom.sha1.lower()
                     rom_input_path = hash_index[digest]
                     if rom_input_path:
-                        is_zip_file = is_zip(rom_input_path)
+                        is_zip = is_zipfile(rom_input_path)
                         file = file_relative_to_input(rom_input_path, input_dir)
                         if not output_dir:
                             if rom_input_path not in copied_files:
                                 printed_items.append(file)
                                 copied_files.add(rom_input_path)
                         elif rom_input_path not in copied_files:
-                            if not is_zip_file \
-                                    and (num_roms > 1 or os.path.sep in file):
-                                rom_output_dir = os.path.join(
-                                    output_dir,
-                                    entry.name)
-                                os.makedirs(rom_output_dir, exist_ok=True)
+                            if not is_zip and (num_roms > 1 or '/' in file):
+                                rom_output_dir = output_dir / entry.name
+                                rom_output_dir.mkdir(
+                                    parents=True,
+                                    exist_ok=True)
                             else:
                                 rom_output_dir = output_dir
-                            if is_zip_file:
-                                rom_output_path = os.path.join(
-                                    rom_output_dir,
-                                    add_extension(entry.name, 'zip'))
+                            if is_zip:
+                                zip_name = add_extension(entry.name, 'zip')
+                                rom_output_path = rom_output_dir / zip_name
                             else:
-                                rom_output_path = os.path.join(
-                                    rom_output_dir,
-                                    entry_rom.name)
+                                rom_output_path = \
+                                    rom_output_dir / entry_rom.name
                             transfer_file(
                                 rom_input_path,
                                 rom_output_path,
@@ -678,30 +675,32 @@ def main(argv: List[str]):
                             'have been found!' % game)
             elif input_dir:
                 file_name = add_extension(entry.name, file_extension)
-                full_path = os.path.join(input_dir, file_name)
-                if os.path.isfile(full_path):
+                full_path = input_dir / file_name
+                if full_path.is_file():
                     if output_dir:
                         transfer_file(full_path, output_dir, move)
                     else:
                         printed_items.append(file_name)
                     break
-                elif os.path.isdir(full_path):
+                elif full_path.is_dir():
                     for entry_rom in entry.roms:
-                        rom_input_path = os.path.join(full_path, entry_rom.name)
-                        if os.path.isfile(rom_input_path):
+                        rom_input_path = full_path / entry_rom.name
+                        if rom_input_path.is_file():
                             if output_dir:
-                                rom_output_dir = os.path.join(
-                                    output_dir,
-                                    file_name)
-                                os.makedirs(rom_output_dir, exist_ok=True)
+                                rom_output_dir = output_dir / file_name
+                                rom_output_dir.mkdir(
+                                    parents=True,
+                                    exist_ok=True)
                                 transfer_file(
                                     rom_input_path,
                                     rom_output_dir,
                                     move)
-                                shutil.copystat(full_path, rom_output_dir)
+                                shutil.copystat(
+                                    str(full_path),
+                                    str(rom_output_dir))
                             else:
                                 printed_items.append(
-                                    file_name + os.path.sep + entry_rom.name)
+                                    file_name + '/' + entry_rom.name)
                         else:
                             log(
                                 'WARNING: ROM file [%s] for candidate [%s] '
@@ -725,12 +724,12 @@ def main(argv: List[str]):
 
 def add_extension(file_name: str, file_extension: str) -> str:
     if file_extension:
-        return file_name + os.path.extsep + file_extension
+        return file_name + '.' + file_extension
     return file_name
 
 
-def file_relative_to_input(file: str, input_dir: str) -> str:
-    return file.replace(input_dir, '', 1).lstrip(os.path.sep)
+def file_relative_to_input(file: Path, input_dir: Path) -> str:
+    return str(file).replace(str(input_dir), '', 1).lstrip('/')
 
 
 def parse_list(
@@ -740,9 +739,8 @@ def parse_list(
         separator: str) -> List[Pattern]:
     if arg_str:
         if arg_str.startswith(FILE_PREFIX):
-            file = (arg_str[len(FILE_PREFIX):]).strip()
-            file = os.path.expanduser(file)
-            if not os.path.isfile(file):
+            file = Path((arg_str[len(FILE_PREFIX):]).strip()).expanduser()
+            if not file.is_file():
                 raise OSError('invalid file: %s' % file)
             arg_list = [x.strip() for x in open(file) if is_valid(x)]
         else:
@@ -789,16 +787,16 @@ def set_scores(
 
 
 def transfer_file(
-        input_path: str,
-        output_path: str,
+        input_path: Path,
+        output_path: Path,
         move: bool) -> None:
     try:
         if move:
             print('Moving [%s] to [%s]' % (input_path, output_path))
-            shutil.move(input_path, output_path)
+            shutil.move(str(input_path), str(output_path))
         else:
             print('Copying [%s] to [%s]' % (input_path, output_path))
-            shutil.copy2(input_path, output_path)
+            shutil.copy2(str(input_path), str(output_path))
     except OSError as e:
         print(
             'Error while transferring file: %s\033[K' % e,
@@ -809,13 +807,10 @@ def log(s: str) -> None:
     print(s, file=LOG_FILE if LOG_FILE else sys.stderr)
 
 
-
-
-
 if __name__ == '__main__':
     script_file = sys.argv[0]
-    if os.path.extsep in script_file:
-        script_file = script_file[:script_file.rindex(os.path.extsep)]
+    if '.' in script_file:
+        script_file = script_file[:script_file.rindex('.')]
     log_file = add_extension(script_file, 'log')
     final_message = '\nExecution %s. Check the %s file for logs.' \
                     % ('%s', log_file)

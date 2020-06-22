@@ -2,6 +2,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from math import log
+from pathlib import Path
 from typing import Callable, Iterable, List
 
 try:
@@ -204,12 +205,17 @@ class Rule:
         return bytes(result)
 
 
-def parse_rules(file: str) -> List[Rule]:
-    file = os.path.expanduser(file)
+def parse_rules(file: Path) -> List[Rule]:
+    file = file.expanduser()
     try:
         parser = etree_.ETCompatXMLParser()
     except AttributeError:
         parser = etree_.XMLParser()
+    try:
+        if isinstance(file, os.PathLike):
+            file = os.path.join(file)
+    except AttributeError:
+        pass
     root = etree_.parse(file, parser).getroot()
     rules: List[Rule] = []
     for detector in root.iter('detector'):
