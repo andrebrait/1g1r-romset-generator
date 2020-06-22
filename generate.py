@@ -10,7 +10,7 @@ from pathlib import Path
 from threading import current_thread
 from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
     BinaryIO, TextIO
-from zipfile import ZipFile, BadZipFile, ZipInfo
+from zipfile import ZipFile, BadZipFile, ZipInfo, is_zipfile
 
 from modules import datafile, header
 from modules.classes import GameEntry, Score, RegionData, \
@@ -392,7 +392,8 @@ def index_files(
 
         for intermediate_result in intermediate_results:
             for key, value in intermediate_result.items():
-                if key in result and not is_zip(result[key]):
+                if key in result and not \
+                        (result[key] and is_zipfile(result[key])):
                     result[key] = value
     return result
 
@@ -416,8 +417,8 @@ def process_file(
         also_check_archive: bool) -> Dict[str, Path]:
     full_path = file_data.path
     result: Dict[str, Path] = {}
-    is_zip_file = is_zip(full_path)
-    if is_zip_file:
+    is_zip = is_zipfile(full_path)
+    if is_zip:
         try:
             with ZipFile(full_path) as compressed_file:
                 infos: List[ZipInfo] = compressed_file.infolist()
@@ -437,7 +438,7 @@ def process_file(
             print(
                 'Error while reading file [%s]: %s\033[K' % (full_path, e),
                 file=sys.stderr)
-    if not is_zip_file or also_check_archive:
+    if not is_zip or also_check_archive:
         try:
             file_size: int = full_path.stat().st_size
             with full_path.open('rb') as uncompressed_file:
@@ -445,7 +446,8 @@ def process_file(
                 if DEBUG:
                     log("DEBUG: Scan result for file [%s]: %s"
                         % (full_path, digest))
-                if digest not in result or is_zip(result[digest]):
+                if digest not in result or \
+                        (result[digest] and is_zipfile(result[digest])):
                     result[digest] = full_path
         except IOError as e:
             print(
@@ -471,10 +473,6 @@ def compute_hash(
                 break
             hasher.update(chunk)
     return hasher.hexdigest().lower()
-
-
-def is_zip(file: Path) -> bool:
-    return file and bool(ZIP_REGEX.search(file.name))
 
 
 def main(argv: List[str]):
@@ -874,22 +872,21 @@ def main(argv: List[str]):
                     digest = entry_rom.sha1.lower()
                     rom_input_path = hash_index[digest]
                     if rom_input_path:
-                        is_zip_file = is_zip(rom_input_path)
+                        is_zip = is_zipfile(rom_input_path)
                         file = file_relative_to_input(rom_input_path, input_dir)
                         if not output_dir:
                             if rom_input_path not in copied_files:
                                 printed_items.append(file)
                                 copied_files.add(rom_input_path)
                         elif rom_input_path not in copied_files:
-                            if not is_zip_file \
-                                    and (num_roms > 1 or '/' in file):
+                            if not is_zip and (num_roms > 1 or '/' in file):
                                 rom_output_dir = output_dir / entry.name
                                 rom_output_dir.mkdir(
                                     parents=True,
                                     exist_ok=True)
                             else:
                                 rom_output_dir = output_dir
-                            if is_zip_file:
+                            if is_zip:
                                 zip_name = add_extension(entry.name, 'zip')
                                 rom_output_path = rom_output_dir / zip_name
                             else:
