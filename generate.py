@@ -333,7 +333,7 @@ def index_files(
                 '%s%s\033[K' % (
                     FOUND_PREFIX,
                     trim_to(
-                        file_relative_to_input(full_path, input_dir),
+                        full_path.relative_to(input_dir),
                         available_columns(FOUND_PREFIX) - 2)),
                 end='\r',
                 file=sys.stderr)
@@ -365,7 +365,7 @@ def index_files(
                     next_file = shared_files_data.pop(0)
                     PROGRESSBAR.print_thread(
                         curr_thread.index,
-                        file_relative_to_input(next_file.path, input_dir))
+                        next_file.path.relative_to(input_dir))
                     shared_result_data.append(process_file(
                         next_file,
                         also_check_archive))
@@ -873,7 +873,7 @@ def main(argv: List[str]):
                     rom_input_path = hash_index[digest]
                     if rom_input_path:
                         is_zip = is_zipfile(rom_input_path)
-                        file = file_relative_to_input(rom_input_path, input_dir)
+                        file = rom_input_path.relative_to(input_dir)
                         if not output_dir:
                             if rom_input_path not in copied_files:
                                 printed_items.append(file)
@@ -964,10 +964,6 @@ def add_extension(file_name: str, file_extension: str) -> str:
     if file_extension:
         return file_name + '.' + file_extension
     return file_name
-
-
-def file_relative_to_input(file: Path, input_dir: Path) -> str:
-    return str(file).replace(str(input_dir), '', 1).lstrip('/')
 
 
 def parse_list(

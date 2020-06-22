@@ -51,7 +51,8 @@ def available_columns(current_text: str) -> int:
     return max(0, term_size.columns - len(current_text))
 
 
-def trim_to(text: str, n: int) -> str:
+def trim_to(obj: Any, n: int) -> str:
+    text = str(obj)
     if len(text) > n:
         return '%s%s' % (TRIM_PREFIX, text[-(n - len(TRIM_PREFIX)):])
     return text
