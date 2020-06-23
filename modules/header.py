@@ -10,8 +10,8 @@ try:
 except ImportError:
     from xml.etree import ElementTree as etree_
 
-_TRUE_REGEX = re.compile(r'^true$', re.IGNORECASE)
-_FALSE_REGEX = re.compile(r'^false$', re.IGNORECASE)
+_TRUE_REGEX = re.compile(r"^true$", re.IGNORECASE)
+_FALSE_REGEX = re.compile(r"^false$", re.IGNORECASE)
 
 
 def _parse_bool(s: str) -> bool:
@@ -19,7 +19,7 @@ def _parse_bool(s: str) -> bool:
         return True
     if _FALSE_REGEX.search(s):
         return False
-    raise ValueError('Cannot convert %s to boolean' % s)
+    raise ValueError("Cannot convert %s to boolean" % s)
 
 
 class Rule:
@@ -35,13 +35,13 @@ class Rule:
                 offset: str,
                 result: str):
             if offset is None:
-                offset = '0'
+                offset = "0"
             if result is None:
-                result = 'true'
+                result = "true"
             value_length = len(value)
             if value_length % 2 != 0:
                 raise ValueError(
-                    'The length of the value must be divisible by 2: %s'
+                    "The length of the value must be divisible by 2: %s"
                     % value)
             self.__offset = int(offset, 16)
             self.__value = int(value, 16)
@@ -50,7 +50,7 @@ class Rule:
 
         def apply(self, byte_arr: bytes) -> bool:
             bytes_slice = byte_arr[self.__offset:self.__end]
-            found_value = int.from_bytes(bytes_slice, 'big')
+            found_value = int.from_bytes(bytes_slice, "big")
             return (found_value == self.__value) == self.__result
 
     class BooleanTest(Test):
@@ -62,14 +62,14 @@ class Rule:
                 offset: str,
                 result: str):
             if offset is None:
-                offset = '0'
+                offset = "0"
             if result is None:
-                result = 'true'
+                result = "true"
             mask_length = len(mask)
             if mask_length != len(value) or mask_length % 2 != 0:
                 raise ValueError(
-                    'Mask (%s) and value (%s) must be the same length '
-                    'and the length must be divisible by 2'
+                    "Mask (%s) and value (%s) must be the same length "
+                    "and the length must be divisible by 2"
                     % (mask, value))
             self.__mask = int(mask, 16)
             self.__value = int(value, 16)
@@ -82,25 +82,25 @@ class Rule:
             return (self.__operation(byte_arr) == self.__value) == self.__result
 
         def __get_op(self, name: str) -> Callable[[bytes], int]:
-            if name == 'and':
+            if name == "and":
                 return self.__bitwise_and
-            if name == 'or':
+            if name == "or":
                 return self.__bitwise_or
-            if name == 'xor':
+            if name == "xor":
                 return self.__bitwise_xor
-            raise ValueError('Unknown boolean test: %s' % name)
+            raise ValueError("Unknown boolean test: %s" % name)
 
         def __bitwise_and(self, byte_arr: bytes) -> int:
             bytes_slice = byte_arr[self.__offset:self.__end]
-            return self.__mask & int.from_bytes(bytes_slice, 'big')
+            return self.__mask & int.from_bytes(bytes_slice, "big")
 
         def __bitwise_or(self, byte_arr: bytes) -> int:
             bytes_slice = byte_arr[self.__offset:self.__end]
-            return self.__mask | int.from_bytes(bytes_slice, 'big')
+            return self.__mask | int.from_bytes(bytes_slice, "big")
 
         def __bitwise_xor(self, byte_arr: bytes) -> int:
             bytes_slice = byte_arr[self.__offset:self.__end]
-            return self.__mask ^ int.from_bytes(bytes_slice, 'big')
+            return self.__mask ^ int.from_bytes(bytes_slice, "big")
 
     class FileTest(Test):
         def __init__(
@@ -109,26 +109,26 @@ class Rule:
                 result: str,
                 operator: str):
             if result is None:
-                result = 'true'
+                result = "true"
             if operator is None:
-                operator = 'equal'
+                operator = "equal"
             self.__operation = self.__get_op(size, operator)
-            self.__size = int(size, 16) if size != 'PO2' else 0
+            self.__size = int(size, 16) if size != "PO2" else 0
             self.__result = _parse_bool(result)
 
         def apply(self, byte_arr: bytes) -> bool:
             return self.__operation(byte_arr) == self.__result
 
         def __get_op(self, size: str, operator: str) -> Callable[[bytes], bool]:
-            if size == 'PO2':
+            if size == "PO2":
                 return Rule.FileTest.__check_po2
-            if operator == 'equal':
+            if operator == "equal":
                 return self.__size_eq
-            if operator == 'less':
+            if operator == "less":
                 return self.__size_less
-            if operator == 'greater':
+            if operator == "greater":
                 return self.__size_greater
-            raise ValueError('Invalid operator: %s' % operator)
+            raise ValueError("Invalid operator: %s" % operator)
 
         def __size_eq(self, byte_arr: bytes) -> bool:
             return len(byte_arr) == self.__size
@@ -150,15 +150,15 @@ class Rule:
             operation: str,
             tests: Iterable[Test] = None):
         if start_offset is None:
-            start_offset = '0'
+            start_offset = "0"
         if end_offset is None:
-            end_offset = 'EOF'
+            end_offset = "EOF"
         if operation is None:
-            operation = 'none'
+            operation = "none"
         if tests is None:
             tests = []
         self.__start_offset = int(start_offset, 16)
-        self.__end_offset = int(end_offset, 16) if end_offset != 'EOF' else 0
+        self.__end_offset = int(end_offset, 16) if end_offset != "EOF" else 0
         self.__operation = self.__get_op(operation)
         self.__tests = tests
 
@@ -172,15 +172,15 @@ class Rule:
         return self.__operation(byte_arr)
 
     def __get_op(self, name: str) -> Callable[[bytes], bytes]:
-        if name == 'bitswap':
+        if name == "bitswap":
             return self.__bitswap
-        if name == 'byteswap':
+        if name == "byteswap":
             return self.__byteswap
-        if name == 'wordswap':
+        if name == "wordswap":
             return self.__wordswap
-        if name == 'none':
+        if name == "none":
             return self.__none
-        raise ValueError('Unknown operation: %s' % name)
+        raise ValueError("Unknown operation: %s" % name)
 
     def __bitswap(self, byte_arr: bytes) -> bytes:
         return self.__none(byte_arr)[::-1]
@@ -218,30 +218,30 @@ def parse_rules(file: Path) -> List[Rule]:
         pass
     root = etree_.parse(file, parser).getroot()
     rules: List[Rule] = []
-    for detector in root.iter('detector'):
-        for rule in detector.iter('rule'):
+    for detector in root.iter("detector"):
+        for rule in detector.iter("rule"):
             tests: List[Rule.Test] = []
             for test in rule.iter():
-                if test.tag == 'data':
+                if test.tag == "data":
                     tests.append(Rule.DataTest(
-                        test.get('value'),
-                        test.get('offset'),
-                        test.get('rules')))
-                elif test.tag in ('and', 'or', 'xor'):
+                        test.get("value"),
+                        test.get("offset"),
+                        test.get("rules")))
+                elif test.tag in ("and", "or", "xor"):
                     tests.append(Rule.BooleanTest(
                         test.tag,
-                        test.get('mask'),
-                        test.get('value'),
-                        test.get('offset'),
-                        test.get('rules')))
-                elif test.tag == 'file':
+                        test.get("mask"),
+                        test.get("value"),
+                        test.get("offset"),
+                        test.get("rules")))
+                elif test.tag == "file":
                     tests.append(Rule.FileTest(
-                        test.get('size'),
-                        test.get('rules'),
-                        test.get('operator')))
+                        test.get("size"),
+                        test.get("rules"),
+                        test.get("operator")))
             rules.append(Rule(
-                rule.get('start_offset'),
-                rule.get('end_offset'),
-                rule.get('operation'),
+                rule.get("start_offset"),
+                rule.get("end_offset"),
+                rule.get("operation"),
                 tests))
     return rules

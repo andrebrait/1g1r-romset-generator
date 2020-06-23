@@ -44,54 +44,7 @@ JSON_ENCODER = CustomJsonEncoder()
 
 DEBUG = False
 
-COUNTRY_REGION_CORRELATION = [
-    # Language needs checking
-    RegionData('ASI', re.compile(r'(Asia)', re.IGNORECASE), ['zh']),
-    RegionData('ARG', re.compile(r'(Argentina)', re.IGNORECASE), ['es']),
-    RegionData('AUS', re.compile(r'(Australia)', re.IGNORECASE), ['en']),
-    RegionData('BRA', re.compile(r'(Brazil)', re.IGNORECASE), ['pt']),
-    # Language needs checking
-    RegionData('CAN', re.compile(r'(Canada)', re.IGNORECASE), ['en', 'fr']),
-    RegionData(
-        'CHN',
-        re.compile(r'((China)|(Hong Kong))', re.IGNORECASE),
-        ['zh']),
-    RegionData('DAN', re.compile(r'(Denmark)', re.IGNORECASE), ['da']),
-    RegionData('EUR', re.compile(r'((Europe)|(World))', re.IGNORECASE), ['en']),
-    RegionData('FRA', re.compile(r'(France)', re.IGNORECASE), ['fr']),
-    RegionData('FYN', re.compile(r'(Finland)', re.IGNORECASE), ['fi']),
-    RegionData('GER', re.compile(r'(Germany)', re.IGNORECASE), ['de']),
-    RegionData('GRE', re.compile(r'(Greece)', re.IGNORECASE), ['el']),
-    RegionData('ITA', re.compile(r'(Italy)', re.IGNORECASE), ['it']),
-    RegionData('JPN', re.compile(r'((Japan)|(World))', re.IGNORECASE), ['ja']),
-    RegionData('HOL', re.compile(r'(Netherlands)', re.IGNORECASE), ['nl']),
-    RegionData('KOR', re.compile(r'(Korea)', re.IGNORECASE), ['ko']),
-    RegionData('MEX', re.compile(r'(Mexico)', re.IGNORECASE), ['es']),
-    RegionData('NOR', re.compile(r'(Norway)', re.IGNORECASE), ['no']),
-    RegionData('RUS', re.compile(r'(Russia)', re.IGNORECASE), ['ru']),
-    RegionData('SPA', re.compile(r'(Spain)', re.IGNORECASE), ['es']),
-    RegionData('SWE', re.compile(r'(Sweden)', re.IGNORECASE), ['sv']),
-    RegionData('USA', re.compile(r'((USA)|(World))', re.IGNORECASE), ['en']),
-    # Language needs checking
-    RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh'])
-]
 
-SECTIONS_REGEX = re.compile(r'\(([^()]+)\)')
-BIOS_REGEX = re.compile(re.escape('[BIOS]'), re.IGNORECASE)
-PROGRAM_REGEX = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
-ENHANCEMENT_CHIP_REGEX = re.compile(r'\(Enhancement\s*Chip\)', re.IGNORECASE)
-UNL_REGEX = re.compile(re.escape('(Unl)'), re.IGNORECASE)
-PIRATE_REGEX = re.compile(re.escape('(Pirate)'), re.IGNORECASE)
-PROMO_REGEX = re.compile(re.escape('(Promo)'), re.IGNORECASE)
-BETA_REGEX = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-PROTO_REGEX = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-SAMPLE_REGEX = re.compile(r'\(Sample(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-DEMO_REGEX = re.compile(r'\(Demo(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
-REV_REGEX = re.compile(r'\(Rev\s*([a-z0-9.]+)\)', re.IGNORECASE)
-VERSION_REGEX = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
-LANGUAGES_REGEX = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
-BAD_REGEX = re.compile(re.escape('[b]'), re.IGNORECASE)
-ZIP_REGEX = re.compile(r'\.zip$', re.IGNORECASE)
 
 
 def parse_revision(name: str) -> str:
@@ -738,7 +691,7 @@ def parse_list(
             file = Path((arg_str[len(FILE_PREFIX):]).strip()).expanduser()
             if not file.is_file():
                 raise OSError('invalid file: %s' % file)
-            arg_list = [x.strip() for x in open(file) if is_valid(x)]
+            arg_list = [x.strip() for x in file.open() if is_valid(x)]
         else:
             arg_list = [x.strip() for x in arg_str.split(separator)
                         if is_valid(x)]
