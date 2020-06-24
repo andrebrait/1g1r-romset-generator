@@ -57,9 +57,9 @@ def _file_path_input(arg: str) -> Path:
 
 def _file_path_output(arg: str) -> Path:
     p = Path(arg.strip()).expanduser()
-    if p.parent:
+    if p.parent != p:
         _make_dir(p.parent)
-    if (not p.parent or p.parent.is_dir()) and (not p.exists() or p.is_file()):
+    if (p.parent == p or p.parent.is_dir()) and (not p.exists() or p.is_file()):
         return p
     raise ArgumentTypeError(f"'{arg}' is not a valid output file")
 
