@@ -879,8 +879,9 @@ def main(argv: List[str]):
                                 printed_items.append(file)
                                 copied_files.add(rom_input_path)
                         elif rom_input_path not in copied_files:
-                            if not is_zip and (num_roms > 1
-                                               or file.parent != file):
+                            if not is_zip and \
+                                    (num_roms > 1
+                                     or file.parent.parent != file.parent):
                                 rom_output_dir = output_dir / entry.name
                                 rom_output_dir.mkdir(
                                     parents=True,
