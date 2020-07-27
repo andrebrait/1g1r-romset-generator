@@ -10,7 +10,7 @@ from pathlib import Path
 from threading import current_thread
 from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
     BinaryIO, TextIO
-from zipfile import ZipFile, BadZipFile, ZipInfo, is_zipfile
+from zipfile import ZipFile, ZipInfo, is_zipfile
 
 from modules import datafile, header
 from modules.classes import GameEntry, Score, RegionData, \
@@ -95,6 +95,7 @@ VERSION_REGEX = re.compile(r'\(v\s*([a-z0-9.]+)\)', re.IGNORECASE)
 LANGUAGES_REGEX = re.compile(r'\(([a-z]{2}(?:[,+][a-z]{2})*)\)', re.IGNORECASE)
 BAD_REGEX = re.compile(re.escape('[b]'), re.IGNORECASE)
 ZIP_REGEX = re.compile(r'\.zip$', re.IGNORECASE)
+ALPHABETICAL_REGEX = re.compile(r'^[a-z]', re.IGNORECASE)
 
 
 def parse_revision(name: str) -> str:
@@ -412,6 +413,7 @@ def get_header_rules(root: datafile) -> List[Rule]:
                 return []
 
 
+# noinspection PyBroadException
 def process_file(
         file_data: FileData,
         also_check_archive: bool) -> Dict[str, Path]:
@@ -434,7 +436,7 @@ def process_file(
                                 % (
                                     "%s:%s" % (full_path, file_info.filename),
                                     digest))
-        except BadZipFile as e:
+        except Exception as e:
             print(
                 'Error while reading file [%s]: %s\033[K' % (full_path, e),
                 file=sys.stderr)
@@ -449,7 +451,7 @@ def process_file(
                 if digest not in result or \
                         (result[digest] and is_zipfile(result[digest])):
                     result[digest] = full_path
-        except IOError as e:
+        except Exception as e:
             print(
                 'Error while reading file: %s\033[K' % e,
                 file=sys.stderr)
@@ -521,7 +523,8 @@ def main(argv: List[str]):
             'header-file=',
             'max-file-size=',
             'version',
-            'only-selected-lang'
+            'only-selected-lang',
+            'group-by-first-letter'
         ])
     except getopt.GetoptError as e:
         sys.exit(help_msg(e))
@@ -560,6 +563,7 @@ def main(argv: List[str]):
     prioritize_languages = False
     prefer_parents = False
     prefer_prereleases = False
+    group_by_first_letter = False
     language_weight = 3
     move = False
     global THREADS
@@ -652,6 +656,7 @@ def main(argv: List[str]):
             RULES = header.parse_rules(header_file)
         if opt == '--max-file-size':
             MAX_FILE_SIZE = int(arg)
+        group_by_first_letter |= opt == '--group-by-first-letter'
 
     if not no_scan and not input_dir:
         print(
@@ -691,6 +696,8 @@ def main(argv: List[str]):
     if all_regions and all_regions_with_lang:
         sys.exit(help_msg(
             'all-regions is mutually exclusive with all-regions-with-lang'))
+    if group_by_first_letter and not output_dir:
+        sys.exit(help_msg('group-by-first-letter requires an output directory'))
     if THREADS <= 0:
         sys.exit(help_msg('Number of threads should be > 0'))
     if MAX_FILE_SIZE <= 0:
@@ -861,10 +868,16 @@ def main(argv: List[str]):
                 'DEBUG: Candidates for game [%s] after filtering: %s'
                 % (game, JSON_ENCODER.encode(entries)))
         size = len(entries)
+        curr_out_dir = output_dir
         for i in range(0, size):
             entry = entries[i]
             if check_in_pattern_list(entry.name, exclude_after):
                 break
+            if output_dir and group_by_first_letter:
+                curr_out_dir = output_dir / \
+                               (entry.name[0].lower()
+                                if ALPHABETICAL_REGEX.search(entry.name)
+                                else '#')
             if use_hashes:
                 copied_files = set()
                 num_roms = len(entry.roms)
@@ -874,20 +887,18 @@ def main(argv: List[str]):
                     if rom_input_path:
                         is_zip = is_zipfile(rom_input_path)
                         file = rom_input_path.relative_to(input_dir)
-                        if not output_dir:
+                        if not curr_out_dir:
                             if rom_input_path not in copied_files:
                                 printed_items.append(file)
                                 copied_files.add(rom_input_path)
                         elif rom_input_path not in copied_files:
-                            if not is_zip and \
-                                    (num_roms > 1
-                                     or file.parent.parent != file.parent):
-                                rom_output_dir = output_dir / entry.name
-                                rom_output_dir.mkdir(
-                                    parents=True,
-                                    exist_ok=True)
+                            if not is_zip and num_roms > 1:
+                                rom_output_dir = curr_out_dir / entry.name
                             else:
-                                rom_output_dir = output_dir
+                                rom_output_dir = curr_out_dir
+                            rom_output_dir.mkdir(
+                                parents=True,
+                                exist_ok=True)
                             if is_zip:
                                 zip_name = add_extension(entry.name, 'zip')
                                 rom_output_path = rom_output_dir / zip_name
@@ -917,8 +928,9 @@ def main(argv: List[str]):
                 file_name = add_extension(entry.name, file_extension)
                 full_path = input_dir / file_name
                 if full_path.is_file():
-                    if output_dir:
-                        transfer_file(full_path, output_dir, move)
+                    if curr_out_dir:
+                        curr_out_dir.mkdir(parents=True, exist_ok=True)
+                        transfer_file(full_path, curr_out_dir, move)
                     else:
                         printed_items.append(file_name)
                     break
@@ -926,8 +938,8 @@ def main(argv: List[str]):
                     for entry_rom in entry.roms:
                         rom_input_path = full_path / entry_rom.name
                         if rom_input_path.is_file():
-                            if output_dir:
-                                rom_output_dir = output_dir / file_name
+                            if curr_out_dir:
+                                rom_output_dir = curr_out_dir / file_name
                                 rom_output_dir.mkdir(
                                     parents=True,
                                     exist_ok=True)
@@ -1081,6 +1093,10 @@ def help_msg(s: Optional[Union[str, Exception]] = None) -> str:
         '\t--move\t\t\t'
         'If set, ROMs will be moved, instead of copied, '
         'to the output directory',
+
+        '\t--group-by-first-letter\t'
+        'If set, groups ROMs on the output directory in subfolders according '
+        'to the first letter in their name',
 
         '\n# File scanning:',
 

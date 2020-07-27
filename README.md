@@ -29,6 +29,7 @@ Options:
         -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
                                 Ex.: -o "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
+        --group-by-first-letter If set, groups ROMs on the output directory in subfolders according to the first letter in their name
 
 # File scanning:
         --header-file=PATH      Sets the header file to be used when scanning headered ROMs
