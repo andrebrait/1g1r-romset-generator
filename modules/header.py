@@ -226,14 +226,14 @@ def parse_rules(file: Path) -> List[Rule]:
                     tests.append(Rule.DataTest(
                         test.get('value'),
                         test.get('offset'),
-                        test.get('rules')))
+                        test.get('result')))
                 elif test.tag in ('and', 'or', 'xor'):
                     tests.append(Rule.BooleanTest(
                         test.tag,
                         test.get('mask'),
                         test.get('value'),
                         test.get('offset'),
-                        test.get('rules')))
+                        test.get('result')))
                 elif test.tag == 'file':
                     tests.append(Rule.FileTest(
                         test.get('size'),
