@@ -20,7 +20,7 @@ from modules.header import Rule
 from modules.utils import get_index, check_in_pattern_list, to_int_list, \
     add_padding, get_or_default, available_columns, trim_to, is_valid
 
-__version__ = '1.9.7-SNAPSHOT'
+__version__ = '1.9.7'
 
 PROGRESSBAR: Optional[MultiThreadedProgressBar] = None
 
