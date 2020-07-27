@@ -1,6 +1,6 @@
 import sys
 from json.encoder import JSONEncoder
-from pathlib import Path
+from pathlib import Path, PurePath
 from threading import Lock, Thread
 from typing import Optional, List, Pattern, TextIO, Tuple, Any
 
@@ -267,4 +267,6 @@ class CustomJsonEncoder(JSONEncoder):
             return o.__dict__
         if isinstance(o, Score):
             return o.__dict__
+        if isinstance(o, PurePath):
+            return str(o)
         return super().default(o)
