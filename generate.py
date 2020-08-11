@@ -9,7 +9,7 @@ from io import BufferedIOBase
 from pathlib import Path
 from threading import current_thread
 from typing import Optional, Match, List, Dict, Pattern, Callable, Union, \
-    BinaryIO, TextIO
+    TextIO, IO
 from zipfile import ZipFile, ZipInfo, is_zipfile
 
 from modules import datafile, header
@@ -460,7 +460,7 @@ def process_file(
 
 def compute_hash(
         file_size: int,
-        internal_file: Union[BufferedIOBase, BinaryIO]) -> str:
+        internal_file: Union[BufferedIOBase, IO[bytes]]) -> str:
     hasher = hashlib.sha1()
     if RULES and file_size <= MAX_FILE_SIZE:
         file_bytes = internal_file.read()
@@ -889,7 +889,7 @@ def main(argv: List[str]):
                         file = rom_input_path.relative_to(input_dir)
                         if not curr_out_dir:
                             if rom_input_path not in copied_files:
-                                printed_items.append(file)
+                                printed_items.append(str(file))
                                 copied_files.add(rom_input_path)
                         elif rom_input_path not in copied_files:
                             if not is_zip and num_roms > 1:
