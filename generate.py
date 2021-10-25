@@ -55,10 +55,7 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('BRA', re.compile(r'(Brazil)', re.IGNORECASE), ['pt']),
     # Language needs checking
     RegionData('CAN', re.compile(r'(Canada)', re.IGNORECASE), ['en', 'fr']),
-    RegionData(
-        'CHN',
-        re.compile(r'((China)|(Hong Kong))', re.IGNORECASE),
-        ['zh']),
+    RegionData('CHN', re.compile(r'(China)', re.IGNORECASE),['zh']),
     RegionData('DAN', re.compile(r'(Denmark)', re.IGNORECASE), ['da']),
     RegionData('EUR', re.compile(r'((Europe)|(World))', re.IGNORECASE), ['en']),
     RegionData('FRA', re.compile(r'(France)', re.IGNORECASE), ['fr']),
@@ -67,16 +64,21 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('GRE', re.compile(r'(Greece)', re.IGNORECASE), ['el']),
     RegionData('ITA', re.compile(r'(Italy)', re.IGNORECASE), ['it']),
     RegionData('JPN', re.compile(r'((Japan)|(World))', re.IGNORECASE), ['ja']),
+    RegionData('HK', re.compile(r'(Hong Kong)', re.IGNORECASE), ['zh']),
     RegionData('HOL', re.compile(r'(Netherlands)', re.IGNORECASE), ['nl']),
     RegionData('KOR', re.compile(r'(Korea)', re.IGNORECASE), ['ko']),
     RegionData('MEX', re.compile(r'(Mexico)', re.IGNORECASE), ['es']),
     RegionData('NOR', re.compile(r'(Norway)', re.IGNORECASE), ['no']),
+    RegionData('NZ', re.compile(r'(New Zealand)', re.IGNORECASE), ['no']),
+    RegionData('POR', re.compile(r'(Portugal)', re.IGNORECASE), ['pt']),
     RegionData('RUS', re.compile(r'(Russia)', re.IGNORECASE), ['ru']),
     RegionData('SPA', re.compile(r'(Spain)', re.IGNORECASE), ['es']),
-    RegionData('SWE', re.compile(r'(Sweden)', re.IGNORECASE), ['sv']),
-    RegionData('USA', re.compile(r'((USA)|(World))', re.IGNORECASE), ['en']),
     # Language needs checking
-    RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh'])
+    RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh']),
+    RegionData('SWE', re.compile(r'(Sweden)', re.IGNORECASE), ['sv']),
+    RegionData('UK', re.compile(r'(United Kingdom)', re.IGNORECASE), ['en']),
+    RegionData('USA', re.compile(r'((USA)|(World))', re.IGNORECASE), ['en']),
+    RegionData('UNK', re.compile(r'(Unknown)', re.IGNORECASE), ['uk'])
 ]
 
 SECTIONS_REGEX = re.compile(r'\(([^()]+)\)')
