@@ -69,7 +69,7 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('KOR', re.compile(r'(Korea)', re.IGNORECASE), ['ko']),
     RegionData('MEX', re.compile(r'(Mexico)', re.IGNORECASE), ['es']),
     RegionData('NOR', re.compile(r'(Norway)', re.IGNORECASE), ['no']),
-    RegionData('NZ', re.compile(r'(New Zealand)', re.IGNORECASE), ['no']),
+    RegionData('NZ', re.compile(r'(New Zealand)', re.IGNORECASE), ['en']),
     RegionData('POR', re.compile(r'(Portugal)', re.IGNORECASE), ['pt']),
     RegionData('RUS', re.compile(r'(Russia)', re.IGNORECASE), ['ru']),
     RegionData('SPA', re.compile(r'(Spain)', re.IGNORECASE), ['es']),
@@ -78,7 +78,7 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('SWE', re.compile(r'(Sweden)', re.IGNORECASE), ['sv']),
     RegionData('UK', re.compile(r'(United Kingdom)', re.IGNORECASE), ['en']),
     RegionData('USA', re.compile(r'((USA)|(World))', re.IGNORECASE), ['en']),
-    RegionData('UNK', re.compile(r'(Unknown)', re.IGNORECASE), ['uk'])
+    RegionData('UNK', re.compile(r'(Unknown)', re.IGNORECASE), ['en'])
 ]
 
 SECTIONS_REGEX = re.compile(r'\(([^()]+)\)')
