@@ -936,6 +936,8 @@ def main(argv: List[str]):
                 if full_path.is_file():
                     if curr_out_dir:
                         curr_out_dir.mkdir(parents=True, exist_ok=True)
+                        if link:
+                            curr_out_dir = curr_out_dir / file_name
                         transfer_file(full_path, curr_out_dir, move, link)
                     else:
                         printed_items.append(file_name)
