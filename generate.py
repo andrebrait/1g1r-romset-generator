@@ -520,7 +520,7 @@ def main(argv: List[str]):
             'all-regions-with-lang',
             'debug',
             'move',
-            'link',
+            'symlink',
             'chunk-size=',
             'threads=',
             'header-file=',
@@ -569,7 +569,7 @@ def main(argv: List[str]):
     group_by_first_letter = False
     language_weight = 3
     move = False
-    link = False
+    symlink = False
     global THREADS
     global RULES
     global MAX_FILE_SIZE
@@ -649,7 +649,7 @@ def main(argv: List[str]):
                 except OSError:
                     sys.exit(help_msg('invalid output DIR: %s' % output_dir))
         move |= opt == '--move'
-        link |= opt == '--link'
+        symlink |= opt == '--symlink'
         if opt == '--chunk-size':
             CHUNK_SIZE = int(arg)
         if opt == '--threads':
@@ -914,7 +914,7 @@ def main(argv: List[str]):
                                 rom_input_path,
                                 rom_output_path,
                                 move,
-                                link)
+                                symlink)
                             copied_files.add(rom_input_path)
                     else:
                         log(
@@ -936,9 +936,9 @@ def main(argv: List[str]):
                 if full_path.is_file():
                     if curr_out_dir:
                         curr_out_dir.mkdir(parents=True, exist_ok=True)
-                        if link:
+                        if symlink:
                             curr_out_dir = curr_out_dir / file_name
-                        transfer_file(full_path, curr_out_dir, move, link)
+                        transfer_file(full_path, curr_out_dir, move, symlink)
                     else:
                         printed_items.append(file_name)
                     break
@@ -955,7 +955,7 @@ def main(argv: List[str]):
                                     rom_input_path,
                                     rom_output_dir,
                                     move,
-                                    link)
+                                    symlink)
                                 shutil.copystat(
                                     str(full_path),
                                     str(rom_output_dir))
@@ -1047,12 +1047,12 @@ def transfer_file(
         input_path: Path,
         output_path: Path,
         move: bool,
-        link: bool) -> None:
+        symlink: bool) -> None:
     try:
         if move:
             print('Moving [%s] to [%s]' % (input_path, output_path))
             shutil.move(str(input_path), str(output_path))
-        elif link:
+        elif symlink:
             print('Linking [%s] to [%s]' % (input_path, output_path))
             output_path.symlink_to(input_path.resolve())
         else:
@@ -1107,7 +1107,7 @@ def help_msg(s: Optional[Union[str, Exception]] = None) -> str:
         'If set, ROMs will be moved, instead of copied, '
         'to the output directory',
 
-        '\t--link\t\t\t'
+        '\t--symlink\t\t'
         'If set, ROMs will be symlinked (soft linked) '
         'to the output directory'
         '\n\t\t\t\t'

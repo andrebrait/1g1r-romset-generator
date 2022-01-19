@@ -29,7 +29,7 @@ Options:
         -o,--output-dir=PATH    If provided, ROMs will be copied to an output directory
                                 Ex.: -o "C:\Users\John\Downloads\Emulators\SNES\ROMs\1G1R"
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
-        --link                  If set, ROMs will be symlinked (soft linked) to the output directory
+        --symlink               If set, ROMs will be symlinked (soft linked) to the output directory
                                 Please note newer versions of Windows 10 require elevated privileges to create symlinks
         --group-by-first-letter If set, groups ROMs on the output directory in subfolders according to the first letter in their name
 
