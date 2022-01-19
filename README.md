@@ -31,6 +31,7 @@ Options:
         --move                  If set, ROMs will be moved, instead of copied, to the output directory
         --symlink               If set, ROMs will be symlinked (soft linked) to the output directory
                                 Please note newer versions of Windows 10 require elevated privileges to create symlinks
+        --relative              If set along with --symlink, will create relative symlinks instead of absolute
         --group-by-first-letter If set, groups ROMs on the output directory in subfolders according to the first letter in their name
 
 # File scanning:
