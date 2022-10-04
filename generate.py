@@ -88,6 +88,7 @@ PROGRAM_REGEX = re.compile(r'\((?:Test\s*)?Program\)', re.IGNORECASE)
 ENHANCEMENT_CHIP_REGEX = re.compile(r'\(Enhancement\s*Chip\)', re.IGNORECASE)
 UNL_REGEX = re.compile(re.escape('(Unl)'), re.IGNORECASE)
 PIRATE_REGEX = re.compile(re.escape('(Pirate)'), re.IGNORECASE)
+AFTERMARKET_REGEX = re.compile(re.escape('(Aftermarket)'), re.IGNORECASE)
 PROMO_REGEX = re.compile(re.escape('(Promo)'), re.IGNORECASE)
 BETA_REGEX = re.compile(r'\(Beta(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
 PROTO_REGEX = re.compile(r'\(Proto(?:\s*([a-z0-9.]+))?\)', re.IGNORECASE)
@@ -207,6 +208,7 @@ def parse_games(
         filter_program: bool,
         filter_enhancement_chip: bool,
         filter_pirate: bool,
+        filter_aftermarket: bool,
         filter_promo: bool,
         filter_unlicensed: bool,
         filter_proto: bool,
@@ -227,6 +229,8 @@ def parse_games(
         if filter_unlicensed and UNL_REGEX.search(game.name):
             continue
         if filter_pirate and PIRATE_REGEX.search(game.name):
+            continue
+        if filter_aftermarket and AFTERMARKET_REGEX.search(game.name):
             continue
         if filter_promo and PROMO_REGEX.search(game.name):
             continue
@@ -494,6 +498,7 @@ def main(argv: List[str]):
             'no-sample',
             'no-proto',
             'no-pirate',
+            'no-aftermarket',
             'no-promo',
             'no-all',
             'no-unlicensed',
@@ -540,6 +545,7 @@ def main(argv: List[str]):
     filter_enhancement_chip = False
     filter_unlicensed = False
     filter_pirate = False
+    filter_aftermarket = False
     filter_promo = False
     filter_proto = False
     filter_beta = False
@@ -609,6 +615,7 @@ def main(argv: List[str]):
         filter_demo |= opt in ('--no-demo', '--no-all')
         filter_sample |= opt in ('--no-sample', '--no-all')
         filter_pirate |= opt in ('--no-pirate', '--no-all')
+        filter_aftermarket |= opt in ('--no-aftermarket', '--no-all')
         filter_promo |= opt in ('--no-promo', '--no-all')
         filter_unlicensed |= opt == '--no-unlicensed'
         all_regions |= opt == '--all-regions'
@@ -742,6 +749,7 @@ def main(argv: List[str]):
         filter_program,
         filter_enhancement_chip,
         filter_pirate,
+        filter_aftermarket,
         filter_promo,
         filter_unlicensed,
         filter_proto,
@@ -765,6 +773,7 @@ def main(argv: List[str]):
             (filter_sample, 'Samples'),
             (filter_unlicensed, 'Unlicensed ROMs'),
             (filter_pirate, 'Pirate ROMs'),
+            (filter_aftermarket, 'Aftermarket ROMs'),
             (filter_promo, 'Promo ROMs'),
             (only_selected_lang, 'ROMs not matching selected languages'),
             (bool(exclude_str), 'Excluded ROMs by name'),
@@ -1188,6 +1197,9 @@ def help_msg(s: Optional[Union[str, Exception]] = None) -> str:
 
         '\t--no-pirate\t\t'
         'Filter out pirate ROMs',
+
+        '\t--no-aftermarket\t\t'
+        'Filter out aftermarket ROMs',
 
         '\t--no-promo\t\t'
         'Filter out promotion ROMs',

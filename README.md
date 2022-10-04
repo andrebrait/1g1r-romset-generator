@@ -56,6 +56,7 @@ Options:
         --no-demo               Filter out demo ROMs
         --no-sample             Filter out sample ROMs
         --no-pirate             Filter out pirate ROMs
+        --no-aftermarket        Filter out aftermarket ROMs
         --no-promo              Filter out promotion ROMs
         --no-all                Apply all filters above (WILL STILL ALLOW UNLICENSED ROMs)
         --no-unlicensed         Filter out unlicensed ROMs
