@@ -100,40 +100,45 @@ Options:
 
 #### Available Regions/Countries and Languages for selection and filtering
 
-According to [No-Intro Naming Convention documents](https://wiki.no-intro.org/index.php?title=Naming_Convention#Region), ROMs are ordered by flags, wich determines it's countries as far as it's main regions. It is put in parentheses on the DAT files, but this is unneeded for using the tool. While full country names are used at current convention (since 2017), the old three letters pattern as show at example above may still works, since it was based mainly at the three same characteres abbreviation of the name of each country.  
+According to [No-Intro Naming Convention documents](https://wiki.no-intro.org/index.php?title=Naming_Convention#Region), ROMs are ordered by flags, wich determines it's countries as far as it's main regions. It is put in parentheses on the DAT files, but this is unneeded for using the tool. While full country names are used at current convention (since 2017), this tool uses old three letters pattern, as show at example above. 
 
-The flag represents the primary region. Secondary regions are omitted (ex. USA and Canada are often the same; Canada will be omitted).
+```
+Single region codes and respective usual languages (not exhaustive):
+        - (Argentina) - ARG, es;
+        - (Australia) - AUS, en | Don’t use with Europe;
+        - (Brazil) - BRA, pt;
+        - (Canada) - CAN, en, fr | Don’t use with USA;
+        - (China) - CHN, zh;
+        - (Denmark) - DAN, da;
+        - (Finland) - FYN, fi;
+        - (France) - FRA, fr;
+        - (Germany) - GER, de;
+        - (Greece) - GRE, el;
+        - (Hong Kong) - HK, zh;
+        - (Italy) - ITA, it;
+        - (Korea) - KOR, ko;
+        - (Mexico) - MEX, es;
+        - (Netherlands) - HOL, nl;
+        - (Norway) - NOR, no;
+        - (New Zealand) - NZ, en;
+        - (Portugal) - POR, pt;
+        - (Russia) - RUS, ru;
+        - (Spain) - SPA, es;
+        - (Sweden) - SWE, sv;
+        - (Taiwan) - TAI, zh;
+        - (United Kingdom) - UK, en;
+```
 
-Single region codes (not exhaustive):
-        - (Australia) Don’t use with Europe
-        - (Brazil)
-        - (Canada) Don’t use with USA
-        - (China)
-        - (France)
-        - (Germany)
-        - (Hong Kong)
-        - (Italy)
-        - (Japan)
-        - (Korea)
-        - (Netherlands)
-        - (Spain)
-        - (Sweden)
-        - (USA) Includes Canada
-
-If a game is released in all 3 major territories (Japan, USA, Europe) the flag (World) will be used. If a game is only released in 2 major territories, then be both will be listed and separated by a comma and a space.
-
-If a game is released in 2 or more European countries the flag (Europe) will be used. The flag (Asia) will be only used if the target regions are multiple Asian countries and the game is different from the Japanese release.
-
-Multi region codes:
-        - (World)
-        - (Europe) Includes Australia
-        - (Asia)
-        - (Japan, USA)
-        - (Japan, Europe)
-        - (USA, Europe)
-This is basically used as a summary of regions specified in the sources' Region fields.
-Note, yet, that it depends mainly on the target markets seek by publisher on determined console. So, there still possible larger region lists (or shorter) than above mentioned.
-
+```
+Multi/Major region codes:
+        - (Asia) - ASI, zh + ko + ru + ja;
+        - (Europe) - EUR, en + es + da + de + fi + fr + el + it + nl + no + sv;
+        - (United States/USA) - USA, en;
+        - (Japan) - JPN, ja;
+        - (Unknow) - UNK,
+        - (World) - EUR or USA or JPN.
+ ```
+ 
 About avaliable languages, the same methodology mentioned above is applied - but usually abranges a very widely range of possibilities, since a game targeted to specific region can cover a variety of languages on the same ROM, as part of it's original code. To this, please refeer to [ISO 639-1 Code List](http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes).
 
 If the list of regions nor languages specified as filters becomes wider than the avaliable at the input_file.dat, the tool will just skip/ignore the unnecessary arguments, working only with the matched ones.
