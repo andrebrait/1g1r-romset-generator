@@ -98,6 +98,52 @@ Options:
         --debug                 Logs even more messages (useful when troubleshooting)
 ```
 
+#### Available Regions/Countries and Languages for selection and filtering
+
+According to [No-Intro Naming Convention documents](https://wiki.no-intro.org/index.php?title=Naming_Convention#Region), ROMs are ordered by flags, wich determines it's countries as far as it's main regions. It is put in parentheses on the DAT files, but this is unneeded for using the tool. While full country names are used at current convention (since 2017), this tool uses old three letters pattern, as show at example above. 
+
+```
+Single region codes and respective usual languages (not exhaustive):
+        - (Argentina) - ARG, es;
+        - (Australia) - AUS, en | Don’t use with Europe;
+        - (Brazil) - BRA, pt;
+        - (Canada) - CAN, en, fr | Don’t use with USA;
+        - (China) - CHN, zh;
+        - (Denmark) - DAN, da;
+        - (Finland) - FYN, fi;
+        - (France) - FRA, fr;
+        - (Germany) - GER, de;
+        - (Greece) - GRE, el;
+        - (Hong Kong) - HK, zh;
+        - (Italy) - ITA, it;
+        - (Korea) - KOR, ko;
+        - (Mexico) - MEX, es;
+        - (Netherlands) - HOL, nl;
+        - (Norway) - NOR, no;
+        - (New Zealand) - NZ, en;
+        - (Portugal) - POR, pt;
+        - (Russia) - RUS, ru;
+        - (Spain) - SPA, es;
+        - (Sweden) - SWE, sv;
+        - (Taiwan) - TAI, zh;
+        - (United Kingdom) - UK, en;
+```
+
+```
+Multi/Major region codes:
+        - (Asia) - ASI, zh + ko + ru + ja;
+        - (Europe) - EUR, en + es + da + de + fi + fr + el + it + nl + no + sv;
+        - (United States/USA) - USA, en;
+        - (Japan) - JPN, ja;
+        - (Unknow) - UNK,
+        - (World) - EUR or USA or JPN.
+ ```
+ 
+About avaliable languages, the same methodology mentioned above is applied - but usually abranges a very widely range of possibilities, since a game targeted to specific region can cover a variety of languages on the same ROM, as part of it's original code. To this, please refeer to [ISO 639-1 Code List](http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes).
+
+If the list of regions nor languages specified as filters becomes wider than the avaliable at the input_file.dat, the tool will just skip/ignore the unnecessary arguments, working only with the matched ones.
+
+
 #### Motivation
 
 1. Parent/Clone XML DATs (the ones used to generate 1G1R ROM sets) sometimes lack data such as the *Region* or *Languages* of a game, even though the of data is often present in a ROM's name (thanks to No-Intro's naming convention).
