@@ -63,6 +63,7 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('FYN', re.compile(r'(Finland)', re.IGNORECASE), ['fi']),
     RegionData('GER', re.compile(r'(Germany)', re.IGNORECASE), ['de']),
     RegionData('GRE', re.compile(r'(Greece)', re.IGNORECASE), ['el']),
+    RegionData('IND', re.compile(r'(India)', re.IGNORECASE), ['en']),
     RegionData('ITA', re.compile(r'(Italy)', re.IGNORECASE), ['it']),
     RegionData('JPN', re.compile(r'((Japan)|(World))', re.IGNORECASE), ['ja']),
     RegionData('HK', re.compile(r'(Hong Kong)', re.IGNORECASE), ['zh']),
