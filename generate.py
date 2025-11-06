@@ -63,6 +63,7 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('FYN', re.compile(r'(Finland)', re.IGNORECASE), ['fi']),
     RegionData('GER', re.compile(r'(Germany)', re.IGNORECASE), ['de']),
     RegionData('GRE', re.compile(r'(Greece)', re.IGNORECASE), ['el']),
+    RegionData('IN', re.compile(r'(India)', re.IGNORECASE), ['en']),
     RegionData('ITA', re.compile(r'(Italy)', re.IGNORECASE), ['it']),
     RegionData('JPN', re.compile(r'((Japan)|(World))', re.IGNORECASE), ['ja']),
     RegionData('HK', re.compile(r'(Hong Kong)', re.IGNORECASE), ['zh']),
@@ -71,8 +72,10 @@ COUNTRY_REGION_CORRELATION = [
     RegionData('MEX', re.compile(r'(Mexico)', re.IGNORECASE), ['es']),
     RegionData('NOR', re.compile(r'(Norway)', re.IGNORECASE), ['no']),
     RegionData('NZ', re.compile(r'(New Zealand)', re.IGNORECASE), ['en']),
+    RegionData('PE', re.compile(r'(Peru)', re.IGNORECASE), ['es']),
     RegionData('POR', re.compile(r'(Portugal)', re.IGNORECASE), ['pt']),
     RegionData('RUS', re.compile(r'(Russia)', re.IGNORECASE), ['ru']),
+    RegionData('SCA', re.compile(r'(Scandinavia)', re.IGNORECASE), ['en']),
     RegionData('SPA', re.compile(r'(Spain)', re.IGNORECASE), ['es']),
     # Language needs checking
     RegionData('TAI', re.compile(r'(Taiwan)', re.IGNORECASE), ['zh']),
